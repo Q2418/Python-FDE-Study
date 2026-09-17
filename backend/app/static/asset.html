@@ -172,8 +172,8 @@ createApp({
             status: this.searchForm.status,
           },
         });
-        this.list = res.data.items;
-        this.total = res.data.total;
+        this.list = res.data.data.items;
+        this.total = res.data.data.total;
       } catch (e) {
         ElMessage.error("加载资产列表失败");
       } finally {
@@ -183,7 +183,7 @@ createApp({
     async loadEmployees() {
       try {
         const res = await axios.get("/api/employee/list", { params: { page: 1, size: 100 } });
-        this.employees = res.data.items;
+        this.employees = res.data.data.items;
       } catch (e) {
         this.employees = [];
       }
@@ -238,7 +238,7 @@ createApp({
         this.dialogVisible = false;
         this.loadList();
       } catch (e) {
-        ElMessage.error((e.response && e.response.data && e.response.data.detail) || "保存失败");
+        ElMessage.error((e.response && e.response.data && e.response.data.msg) || "保存失败");
       } finally {
         this.saving = false;
       }
@@ -258,7 +258,7 @@ createApp({
             }
             this.loadList();
           } catch (e) {
-            ElMessage.error((e.response && e.response.data && e.response.data.detail) || "删除失败");
+            ElMessage.error((e.response && e.response.data && e.response.data.msg) || "删除失败");
           }
         })
         .catch(() => {});

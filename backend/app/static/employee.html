@@ -165,8 +165,8 @@ createApp({
             department: this.searchForm.department,
           },
         });
-        this.list = res.data.items;
-        this.total = res.data.total;
+        this.list = res.data.data.items;
+        this.total = res.data.data.total;
       } catch (e) {
         ElMessage.error("加载员工列表失败");
       } finally {
@@ -215,7 +215,7 @@ createApp({
         this.dialogVisible = false;
         this.loadList();
       } catch (e) {
-        ElMessage.error((e.response && e.response.data && e.response.data.detail) || "保存失败");
+        ElMessage.error((e.response && e.response.data && e.response.data.msg) || "保存失败");
       } finally {
         this.saving = false;
       }
@@ -235,7 +235,7 @@ createApp({
             }
             this.loadList();
           } catch (e) {
-            ElMessage.error((e.response && e.response.data && e.response.data.detail) || "删除失败");
+            ElMessage.error((e.response && e.response.data && e.response.data.msg) || "删除失败");
           }
         })
         .catch(() => {});

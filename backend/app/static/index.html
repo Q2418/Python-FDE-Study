@@ -76,9 +76,9 @@ createApp({
         axios.get("/api/asset/list", { params: { page: 1, size: 1 } }),
         axios.get("/api/asset/list", { params: { page: 1, size: 1, status: "空闲" } }),
       ]);
-      this.employeeTotal = emp.data.total;
-      this.assetTotal = ast.data.total;
-      this.idleTotal = idle.data.total;
+      this.employeeTotal = emp.data.data.total;
+      this.assetTotal = ast.data.data.total;
+      this.idleTotal = idle.data.data.total;
     },
   },
 }).use(ElementPlus, { locale: ElementPlusLocaleZhCn }).mount("#app");

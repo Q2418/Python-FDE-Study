@@ -1,0 +1,237 @@
+{
+  "info": {
+    "name": "企业人员资产管理系统 API",
+    "description": "阶段2 调试集合：统一返回格式（code/msg/data）+ 参数校验 + 分页/条件查询。\n\n使用前：启动项目（cd backend && python run.py），确认变量 base_url 指向服务地址。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:8000"
+    }
+  ],
+  "item": [
+    {
+      "name": "员工管理",
+      "item": [
+        {
+          "name": "员工分页查询",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"业务码 code=200\", function () { pm.expect(pm.response.json().code).to.eql(200); });",
+                  "pm.test(\"返回 data.total 字段\", function () { pm.expect(pm.response.json().data).to.have.property(\"total\"); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/employee/list?page=1&size=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employee", "list"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "按姓名/部门筛选",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/employee/list?page=1&size=10&name=张&department=技术部",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employee", "list"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" },
+                { "key": "name", "value": "张" },
+                { "key": "department", "value": "技术部" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "员工详情",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/employee/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employee", "1"]
+            }
+          }
+        },
+        {
+          "name": "新增员工",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"emp_no\": \"E100\",\n  \"name\": \"测试员工\",\n  \"gender\": \"男\",\n  \"department\": \"技术部\",\n  \"position\": \"工程师\",\n  \"phone\": \"13800000099\",\n  \"email\": \"test100@example.com\",\n  \"hire_date\": \"2025-01-01\",\n  \"status\": \"在职\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/employee",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employee"]
+            }
+          }
+        },
+        {
+          "name": "修改员工",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"position\": \"高级工程师\",\n  \"status\": \"在职\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/employee/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employee", "1"]
+            }
+          }
+        },
+        {
+          "name": "删除员工",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/employee/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "employee", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "资产管理",
+      "item": [
+        {
+          "name": "资产分页查询",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"业务码 code=200\", function () { pm.expect(pm.response.json().code).to.eql(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/asset/list?page=1&size=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "asset", "list"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "按资产状态筛选",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/asset/list?page=1&size=10&status=空闲",
+              "host": ["{{base_url}}"],
+              "path": ["api", "asset", "list"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" },
+                { "key": "status", "value": "空闲" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "资产详情",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/asset/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "asset", "1"]
+            }
+          }
+        },
+        {
+          "name": "新增资产",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"asset_no\": \"ZC100\",\n  \"name\": \"测试资产\",\n  \"category\": \"电脑设备\",\n  \"brand\": \"TestBrand\",\n  \"model\": \"T-1\",\n  \"price\": 1000.00,\n  \"purchase_date\": \"2025-01-01\",\n  \"status\": \"空闲\",\n  \"remark\": \"Postman 调试数据\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/asset",
+              "host": ["{{base_url}}"],
+              "path": ["api", "asset"]
+            }
+          }
+        },
+        {
+          "name": "修改资产",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"维修\",\n  \"remark\": \"送修中\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/asset/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "asset", "1"]
+            }
+          }
+        },
+        {
+          "name": "删除资产",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/asset/1",
+              "host": ["{{base_url}}"],
+              "path": ["api", "asset", "1"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
