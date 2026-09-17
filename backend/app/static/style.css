@@ -1,0 +1,158 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+  background: #f5f7fa;
+  color: #303133;
+}
+
+[v-cloak] {
+  display: none;
+}
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 210px;
+  background: #001529;
+  flex-shrink: 0;
+}
+
+.sidebar .logo {
+  height: 60px;
+  line-height: 60px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+  color: #fff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.sidebar a {
+  display: block;
+  height: 46px;
+  line-height: 46px;
+  padding: 0 24px;
+  color: rgba(255, 255, 255, 0.75);
+  text-decoration: none;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.sidebar a:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar a.active {
+  color: #fff;
+  background: #1677ff;
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.header {
+  height: 60px;
+  background: #fff;
+  border-bottom: 1px solid #ebeef5;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+.header .title {
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.header .sub {
+  font-size: 13px;
+  color: #909399;
+}
+
+.content {
+  padding: 20px 24px;
+}
+
+.card {
+  background: #fff;
+  border-radius: 6px;
+  padding: 18px 20px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.toolbar .left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 14px;
+}
+
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  background: #fff;
+  border-radius: 6px;
+  padding: 22px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.stat-card .label {
+  color: #909399;
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+
+.stat-card .value {
+  font-size: 28px;
+  font-weight: 700;
+  color: #1677ff;
+}
+
+.intro {
+  line-height: 2;
+  color: #606266;
+  font-size: 14px;
+}
+
+.intro b {
+  color: #303133;
+}
+
+.intro a {
+  color: #1677ff;
+  text-decoration: none;
+}

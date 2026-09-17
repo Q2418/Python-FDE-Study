@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>首页 - 企业人员资产管理后台系统</title>
+  <link rel="stylesheet" href="/static/lib/element-plus.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app" v-cloak>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">资产管理系统</div>
+      <a href="/" class="active">首页</a>
+      <a href="/employee">员工管理</a>
+      <a href="/asset">资产管理</a>
+      <a href="/docs" target="_blank">接口文档</a>
+    </aside>
+    <div class="main">
+      <div class="header">
+        <div class="title">系统首页</div>
+        <div class="sub">阶段1 Demo · FastAPI + Vue3 + Element Plus</div>
+      </div>
+      <div class="content">
+        <div class="stat-grid">
+          <div class="stat-card">
+            <div class="label">员工总数</div>
+            <div class="value">{{ employeeTotal }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">资产总数</div>
+            <div class="value">{{ assetTotal }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">空闲资产</div>
+            <div class="value">{{ idleTotal }}</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="intro">
+            <p><b>项目：</b>企业人员资产管理后台系统（FDE 工程师培训 · 阶段1 Demo）</p>
+            <p><b>技术栈：</b>FastAPI + SQLAlchemy + PyMySQL + Vue3 + Element Plus，数据库默认 SQLite（改一行配置即可切换 MySQL）</p>
+            <p><b>已实现：</b>员工表 / 资产表建表 SQL、后端 CRUD 接口、前端管理页面（增删改查 + 条件搜索 + 分页）</p>
+            <p><b>接口文档：</b><a href="/docs" target="_blank">/docs</a>（Swagger UI，可直接在线调试所有接口）</p>
+            <p><b>页面入口：</b><a href="/employee">员工管理</a> ｜ <a href="/asset">资产管理</a></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/lib/vue.global.prod.js"></script>
+<script src="/static/lib/element-plus.full.min.js"></script>
+<script src="/static/lib/element-plus-zh-cn.min.js"></script>
+<script src="/static/lib/axios.min.js"></script>
+<script>
+const { createApp } = Vue;
+
+createApp({
+  data() {
+    return {
+      employeeTotal: 0,
+      assetTotal: 0,
+      idleTotal: 0,
+    };
+  },
+  mounted() {
+    this.loadStats();
+  },
+  methods: {
+    async loadStats() {
+      const [emp, ast, idle] = await Promise.all([
+        axios.get("/api/employee/list", { params: { page: 1, size: 1 } }),
+        axios.get("/api/asset/list", { params: { page: 1, size: 1 } }),
+        axios.get("/api/asset/list", { params: { page: 1, size: 1, status: "空闲" } }),
+      ]);
+      this.employeeTotal = emp.data.total;
+      this.assetTotal = ast.data.total;
+      this.idleTotal = idle.data.total;
+    },
+  },
+}).use(ElementPlus, { locale: ElementPlusLocaleZhCn }).mount("#app");
+</script>
+</body>
+</html>

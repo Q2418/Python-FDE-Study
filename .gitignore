@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 数据库（程序启动时自动生成）
+*.db
+*.sqlite3
+
+# IDE
+.idea/
+.vscode/
+
+# 日志
+*.log

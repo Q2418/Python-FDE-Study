@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>资产管理 - 企业人员资产管理后台系统</title>
+  <link rel="stylesheet" href="/static/lib/element-plus.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app" v-cloak>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">资产管理系统</div>
+      <a href="/">首页</a>
+      <a href="/employee">员工管理</a>
+      <a href="/asset" class="active">资产管理</a>
+      <a href="/docs" target="_blank">接口文档</a>
+    </aside>
+    <div class="main">
+      <div class="header">
+        <div class="title">资产管理</div>
+        <div class="sub">阶段1 Demo · FastAPI + Vue3 + Element Plus</div>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div class="toolbar">
+            <div class="left">
+              <el-input v-model="searchForm.name" placeholder="按资产名称搜索" clearable style="width: 180px" @keyup.enter="search" />
+              <el-select v-model="searchForm.status" placeholder="按状态筛选" clearable style="width: 160px">
+                <el-option v-for="s in statusOptions" :key="s" :label="s" :value="s" />
+              </el-select>
+              <el-button type="primary" @click="search">查询</el-button>
+              <el-button @click="resetSearch">重置</el-button>
+            </div>
+            <div class="left">
+              <el-button type="primary" @click="openAdd">新增资产</el-button>
+            </div>
+          </div>
+
+          <el-table :data="list" border stripe v-loading="loading" style="width: 100%">
+            <el-table-column prop="asset_no" label="资产编号" width="120" />
+            <el-table-column prop="name" label="资产名称" min-width="130" show-overflow-tooltip />
+            <el-table-column prop="category" label="类别" width="100" />
+            <el-table-column prop="brand" label="品牌" width="100" />
+            <el-table-column prop="model" label="型号" width="120" show-overflow-tooltip />
+            <el-table-column prop="price" label="价格(元)" width="100">
+              <template #default="scope">{{ scope.row.price != null ? scope.row.price : "-" }}</template>
+            </el-table-column>
+            <el-table-column prop="purchase_date" label="购置日期" width="110" />
+            <el-table-column label="状态" width="90">
+              <template #default="scope">
+                <el-tag :type="statusTagType(scope.row.status)">{{ scope.row.status }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="领用人" width="100">
+              <template #default="scope">{{ scope.row.user_id ? employeeName(scope.row.user_id) : "-" }}</template>
+            </el-table-column>
+            <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
+            <el-table-column label="操作" width="140" fixed="right">
+              <template #default="scope">
+                <el-button link type="primary" @click="openEdit(scope.row)">编辑</el-button>
+                <el-button link type="danger" @click="remove(scope.row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <div class="pager">
+            <el-pagination
+              layout="total, prev, pager, next"
+              :total="total"
+              :page-size="size"
+              :current-page="page"
+              @current-change="onPageChange"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <el-dialog v-model="dialogVisible" :title="dialogTitle" width="560px" destroy-on-close>
+    <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
+      <el-form-item label="资产编号" prop="asset_no">
+        <el-input v-model="form.asset_no" placeholder="如 ZC20260007" />
+      </el-form-item>
+      <el-form-item label="资产名称" prop="name">
+        <el-input v-model="form.name" placeholder="请输入资产名称" />
+      </el-form-item>
+      <el-form-item label="类别" prop="category">
+        <el-select v-model="form.category" filterable allow-create style="width: 100%" placeholder="请选择或输入类别">
+          <el-option v-for="c in categoryOptions" :key="c" :label="c" :value="c" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="品牌" prop="brand">
+        <el-input v-model="form.brand" placeholder="请输入品牌" />
+      </el-form-item>
+      <el-form-item label="型号" prop="model">
+        <el-input v-model="form.model" placeholder="请输入型号" />
+      </el-form-item>
+      <el-form-item label="价格" prop="price">
+        <el-input-number v-model="form.price" :min="0" :precision="2" :step="100" style="width: 100%" />
+      </el-form-item>
+      <el-form-item label="购置日期" prop="purchase_date">
+        <el-date-picker v-model="form.purchase_date" type="date" value-format="YYYY-MM-DD" style="width: 100%" placeholder="选择日期" />
+      </el-form-item>
+      <el-form-item label="状态" prop="status">
+        <el-select v-model="form.status" style="width: 100%">
+          <el-option v-for="s in statusOptions" :key="s" :label="s" :value="s" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="领用人" prop="user_id">
+        <el-select v-model="form.user_id" clearable filterable style="width: 100%" placeholder="选择领用员工（可选）">
+          <el-option v-for="emp in employees" :key="emp.id" :label="emp.name + '（' + emp.department + '）'" :value="emp.id" />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="备注" prop="remark">
+        <el-input v-model="form.remark" type="textarea" :rows="2" placeholder="请输入备注" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="dialogVisible = false">取消</el-button>
+      <el-button type="primary" :loading="saving" @click="save">保存</el-button>
+    </template>
+  </el-dialog>
+</div>
+
+<script src="/static/lib/vue.global.prod.js"></script>
+<script src="/static/lib/element-plus.full.min.js"></script>
+<script src="/static/lib/element-plus-zh-cn.min.js"></script>
+<script src="/static/lib/axios.min.js"></script>
+<script>
+const { createApp } = Vue;
+const { ElMessage, ElMessageBox } = ElementPlus;
+
+createApp({
+  data() {
+    return {
+      list: [],
+      total: 0,
+      page: 1,
+      size: 10,
+      loading: false,
+      saving: false,
+      employees: [],
+      searchForm: { name: "", status: "" },
+      statusOptions: ["空闲", "已领用", "维修", "报废"],
+      categoryOptions: ["电脑设备", "网络设备", "办公用品", "其他"],
+      dialogVisible: false,
+      dialogTitle: "新增资产",
+      isEdit: false,
+      form: {},
+      rules: {
+        asset_no: [{ required: true, message: "请输入资产编号", trigger: "blur" }],
+        name: [{ required: true, message: "请输入资产名称", trigger: "blur" }],
+      },
+    };
+  },
+  mounted() {
+    this.loadList();
+    this.loadEmployees();
+  },
+  methods: {
+    async loadList() {
+      this.loading = true;
+      try {
+        const res = await axios.get("/api/asset/list", {
+          params: {
+            page: this.page,
+            size: this.size,
+            name: this.searchForm.name,
+            status: this.searchForm.status,
+          },
+        });
+        this.list = res.data.items;
+        this.total = res.data.total;
+      } catch (e) {
+        ElMessage.error("加载资产列表失败");
+      } finally {
+        this.loading = false;
+      }
+    },
+    async loadEmployees() {
+      try {
+        const res = await axios.get("/api/employee/list", { params: { page: 1, size: 100 } });
+        this.employees = res.data.items;
+      } catch (e) {
+        this.employees = [];
+      }
+    },
+    employeeName(id) {
+      const emp = this.employees.find((item) => item.id === id);
+      return emp ? emp.name : "-";
+    },
+    statusTagType(status) {
+      const map = { 空闲: "success", 已领用: "primary", 维修: "warning", 报废: "danger" };
+      return map[status] || "info";
+    },
+    search() {
+      this.page = 1;
+      this.loadList();
+    },
+    resetSearch() {
+      this.searchForm = { name: "", status: "" };
+      this.search();
+    },
+    onPageChange(p) {
+      this.page = p;
+      this.loadList();
+    },
+    openAdd() {
+      this.isEdit = false;
+      this.dialogTitle = "新增资产";
+      this.form = { status: "空闲", price: 0 };
+      this.dialogVisible = true;
+    },
+    openEdit(row) {
+      this.isEdit = true;
+      this.dialogTitle = "编辑资产";
+      this.form = { ...row };
+      this.dialogVisible = true;
+    },
+    async save() {
+      try {
+        await this.$refs.formRef.validate();
+      } catch (e) {
+        return;
+      }
+      this.saving = true;
+      try {
+        if (this.isEdit) {
+          await axios.put("/api/asset/" + this.form.id, this.form);
+          ElMessage.success("修改成功");
+        } else {
+          await axios.post("/api/asset", this.form);
+          ElMessage.success("新增成功");
+        }
+        this.dialogVisible = false;
+        this.loadList();
+      } catch (e) {
+        ElMessage.error((e.response && e.response.data && e.response.data.detail) || "保存失败");
+      } finally {
+        this.saving = false;
+      }
+    },
+    remove(row) {
+      ElMessageBox.confirm("确定删除资产「" + row.name + "」吗？", "提示", {
+        type: "warning",
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+      })
+        .then(async () => {
+          try {
+            await axios.delete("/api/asset/" + row.id);
+            ElMessage.success("删除成功");
+            if (this.list.length === 1 && this.page > 1) {
+              this.page -= 1;
+            }
+            this.loadList();
+          } catch (e) {
+            ElMessage.error((e.response && e.response.data && e.response.data.detail) || "删除失败");
+          }
+        })
+        .catch(() => {});
+    },
+  },
+}).use(ElementPlus, { locale: ElementPlusLocaleZhCn }).mount("#app");
+</script>
+</body>
+</html>
