@@ -1,5 +1,8 @@
 -- ============================================================
--- 企业人员资产管理后台系统 · 阶段1 建表脚本（MySQL 8.0）
+-- 企业人员资产管理后台系统 · 建表脚本（MySQL 8.0）
+-- 阶段1：员工表、资产表
+-- 阶段2：无新表（规范化改造）
+-- 阶段3：用户表、角色表、用户角色关联表、领用记录表
 -- 说明：使用 MySQL 时执行本脚本；使用 SQLite 时由程序自动建表
 -- ============================================================
 
@@ -52,6 +55,63 @@ CREATE TABLE `asset` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='资产表';
 
 -- ------------------------------------------------------------
+-- 角色表
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS `role`;
+CREATE TABLE `role` (
+  `id`          INT          NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `code`        VARCHAR(32)  NOT NULL                COMMENT '角色编码：admin/employee',
+  `name`        VARCHAR(50)  NOT NULL                COMMENT '角色名称',
+  `description` VARCHAR(255) DEFAULT NULL            COMMENT '描述',
+  `create_time` DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_role_code` (`code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色表';
+
+-- ------------------------------------------------------------
+-- 用户表
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS `user`;
+CREATE TABLE `user` (
+  `id`            INT          NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `username`      VARCHAR(50)  NOT NULL                COMMENT '登录账号',
+  `password_hash` VARCHAR(100) NOT NULL                COMMENT '密码哈希（bcrypt）',
+  `real_name`     VARCHAR(50)  DEFAULT NULL            COMMENT '姓名',
+  `status`        VARCHAR(10)  DEFAULT '启用'          COMMENT '状态：启用/禁用',
+  `create_time`   DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time`   DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+
+-- ------------------------------------------------------------
+-- 用户角色关联表
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS `user_role`;
+CREATE TABLE `user_role` (
+  `user_id` INT NOT NULL COMMENT '用户ID（关联user.id）',
+  `role_id` INT NOT NULL COMMENT '角色ID（关联role.id）',
+  PRIMARY KEY (`user_id`, `role_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户角色关联表';
+
+-- ------------------------------------------------------------
+-- 资产领用记录表
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS `asset_record`;
+CREATE TABLE `asset_record` (
+  `id`          INT          NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `asset_id`    INT          NOT NULL                COMMENT '资产ID（关联asset.id）',
+  `employee_id` INT          NOT NULL                COMMENT '领用人员工ID（关联employee.id）',
+  `action`      VARCHAR(10)  NOT NULL                COMMENT '动作：领用/归还',
+  `operator_id` INT          DEFAULT NULL            COMMENT '操作人用户ID（关联user.id）',
+  `remark`      VARCHAR(255) DEFAULT NULL            COMMENT '备注',
+  `create_time` DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_asset_id` (`asset_id`),
+  KEY `idx_employee_id` (`employee_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='资产领用记录表';
+
+-- ------------------------------------------------------------
 -- 演示数据（可选）
 -- ------------------------------------------------------------
 INSERT INTO `employee` (`emp_no`, `name`, `gender`, `department`, `position`, `phone`, `email`, `hire_date`, `status`) VALUES
@@ -68,3 +128,16 @@ INSERT INTO `asset` (`asset_no`, `name`, `category`, `brand`, `model`, `price`, 
 ('ZC20260004', '群晖NAS服务器','网络设备', 'Synology','DS1823xs+',  12999.00, '2023-01-12', '空闲',   NULL, '存放项目资料'),
 ('ZC20260005', '人体工学办公椅','办公用品', 'ErgoPro', 'EP-2023',     1299.00, '2023-03-25', '已领用', 4,    '刘洋领用'),
 ('ZC20260006', '爱普生投影仪', '办公用品', 'Epson',   'CB-L630U',   18999.00, '2020-04-08', '报废',   NULL, '已到报废年限');
+
+INSERT INTO `role` (`code`, `name`, `description`) VALUES
+('admin',    '管理员',   '系统管理员，可增删改查全部数据'),
+('employee', '普通员工', '只读权限，仅可查看数据');
+
+-- 密码均为 123456（bcrypt 哈希）
+INSERT INTO `user` (`username`, `password_hash`, `real_name`, `status`) VALUES
+('admin',    '$2b$12$dJPVgnCOm2RZGLgIaPguy.mcD0cli2bppgvODBIolKLgCt3nxsxQO', '系统管理员', '启用'),
+('zhangsan', '$2b$12$dJPVgnCOm2RZGLgIaPguy.mcD0cli2bppgvODBIolKLgCt3nxsxQO', '张伟',       '启用');
+
+INSERT INTO `user_role` (`user_id`, `role_id`) VALUES
+(1, 1),
+(2, 2);

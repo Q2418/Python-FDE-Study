@@ -4,10 +4,24 @@
     "description": "阶段2 调试集合：统一返回格式（code/msg/data）+ 参数校验 + 分页/条件查询。\n\n使用前：启动项目（cd backend && python run.py），确认变量 base_url 指向服务地址。",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
   "variable": [
     {
       "key": "base_url",
       "value": "http://127.0.0.1:8000"
+    },
+    {
+      "key": "token",
+      "value": ""
     }
   ],
   "item": [
@@ -228,6 +242,114 @@
               "raw": "{{base_url}}/api/asset/1",
               "host": ["{{base_url}}"],
               "path": ["api", "asset", "1"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "登录认证",
+      "item": [
+        {
+          "name": "登录（自动保存 token）",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"登录成功\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"保存 token 到集合变量\", function () {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set(\"token\", body.data.token);",
+                  "    pm.expect(body.data.token).to.be.a(\"string\").and.not.empty;",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin\",\n  \"password\": \"123456\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "当前登录用户",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "领用归还",
+      "item": [
+        {
+          "name": "资产领用",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employee_id\": 1,\n  \"remark\": \"Postman 调试领用\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/asset/1/borrow",
+              "host": ["{{base_url}}"],
+              "path": ["api", "asset", "1", "borrow"]
+            }
+          }
+        },
+        {
+          "name": "资产归还",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"remark\": \"Postman 调试归还\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/asset/1/return",
+              "host": ["{{base_url}}"],
+              "path": ["api", "asset", "1", "return"]
+            }
+          }
+        },
+        {
+          "name": "领用记录查询",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/record/list?page=1&size=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "record", "list"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
             }
           }
         }

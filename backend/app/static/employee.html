@@ -15,12 +15,16 @@
       <a href="/">首页</a>
       <a href="/employee" class="active">员工管理</a>
       <a href="/asset">资产管理</a>
+      <a href="/record">领用记录</a>
       <a href="/docs" target="_blank">接口文档</a>
     </aside>
     <div class="main">
       <div class="header">
         <div class="title">员工管理</div>
-        <div class="sub">阶段1 Demo · FastAPI + Vue3 + Element Plus</div>
+        <div class="header-right">
+          <span class="user-info">{{ userName }}<span class="role-tag">{{ roleName }}</span></span>
+          <el-button link type="primary" @click="logout">退出登录</el-button>
+        </div>
       </div>
       <div class="content">
         <div class="card">
@@ -34,7 +38,7 @@
               <el-button @click="resetSearch">重置</el-button>
             </div>
             <div class="left">
-              <el-button type="primary" @click="openAdd">新增员工</el-button>
+              <el-button v-if="isAdmin" type="primary" @click="openAdd">新增员工</el-button>
             </div>
           </div>
 
@@ -52,7 +56,7 @@
                 <el-tag :type="scope.row.status === '在职' ? 'success' : 'info'">{{ scope.row.status }}</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" width="140" fixed="right">
+            <el-table-column v-if="isAdmin" label="操作" width="140" fixed="right">
               <template #default="scope">
                 <el-button link type="primary" @click="openEdit(scope.row)">编辑</el-button>
                 <el-button link type="danger" @click="remove(scope.row)">删除</el-button>
@@ -123,6 +127,7 @@
 <script src="/static/lib/element-plus.full.min.js"></script>
 <script src="/static/lib/element-plus-zh-cn.min.js"></script>
 <script src="/static/lib/axios.min.js"></script>
+<script src="/static/app.js"></script>
 <script>
 const { createApp } = Vue;
 const { ElMessage, ElMessageBox } = ElementPlus;
@@ -142,6 +147,9 @@ createApp({
       dialogTitle: "新增员工",
       isEdit: false,
       form: {},
+      isAdmin: AppAuth.isAdmin(),
+      userName: AppAuth.displayName(),
+      roleName: AppAuth.isAdmin() ? "管理员" : "普通员工",
       rules: {
         emp_no: [{ required: true, message: "请输入工号", trigger: "blur" }],
         name: [{ required: true, message: "请输入姓名", trigger: "blur" }],
@@ -151,6 +159,9 @@ createApp({
     };
   },
   mounted() {
+    if (!AppAuth.requireLogin()) {
+      return;
+    }
     this.loadList();
   },
   methods: {
@@ -168,7 +179,7 @@ createApp({
         this.list = res.data.data.items;
         this.total = res.data.data.total;
       } catch (e) {
-        ElMessage.error("加载员工列表失败");
+        ElMessage.error(AppAuth.errorMsg(e, "加载员工列表失败"));
       } finally {
         this.loading = false;
       }
@@ -215,7 +226,7 @@ createApp({
         this.dialogVisible = false;
         this.loadList();
       } catch (e) {
-        ElMessage.error((e.response && e.response.data && e.response.data.msg) || "保存失败");
+        ElMessage.error(AppAuth.errorMsg(e, "保存失败"));
       } finally {
         this.saving = false;
       }
@@ -235,10 +246,13 @@ createApp({
             }
             this.loadList();
           } catch (e) {
-            ElMessage.error((e.response && e.response.data && e.response.data.msg) || "删除失败");
+            ElMessage.error(AppAuth.errorMsg(e, "删除失败"));
           }
         })
         .catch(() => {});
+    },
+    logout() {
+      AppAuth.logout();
     },
   },
 }).use(ElementPlus, { locale: ElementPlusLocaleZhCn }).mount("#app");

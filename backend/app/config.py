@@ -12,3 +12,10 @@ APP_VERSION = "0.1.0"
 # ------------------------------------------------------------
 DATABASE_URL = f"sqlite:///{BASE_DIR / 'asset_admin.db'}"
 # DATABASE_URL = "mysql+pymysql://root:你的密码@127.0.0.1:3306/asset_admin?charset=utf8mb4"
+
+# ------------------------------------------------------------
+# 登录认证配置（JWT）
+# ------------------------------------------------------------
+SECRET_KEY = "asset-admin-jwt-secret-please-change-in-production"
+JWT_ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 120

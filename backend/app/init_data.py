@@ -1,7 +1,9 @@
 from datetime import date
 
+from .core.security import hash_password
 from .database import SessionLocal
 from .models import Asset, Employee
+from .models.user import Role, User
 
 DEMO_EMPLOYEES = [
     dict(emp_no="E001", name="张伟", gender="男", department="技术部", position="后端工程师",
@@ -31,6 +33,16 @@ DEMO_ASSETS = [
          price=18999.00, purchase_date=date(2020, 4, 8), status="报废", user_id=None, remark="已到报废年限"),
 ]
 
+DEMO_ROLES = [
+    dict(code="admin", name="管理员", description="系统管理员，可增删改查全部数据"),
+    dict(code="employee", name="普通员工", description="只读权限，仅可查看数据"),
+]
+
+DEMO_USERS = [
+    dict(username="admin", password="123456", real_name="系统管理员", role_code="admin"),
+    dict(username="zhangsan", password="123456", real_name="张伟", role_code="employee"),
+]
+
 
 def init_demo_data():
     """首次启动时写入演示数据，已有数据则跳过"""
@@ -40,6 +52,19 @@ def init_demo_data():
             db.add_all([Employee(**item) for item in DEMO_EMPLOYEES])
         if db.query(Asset).count() == 0:
             db.add_all([Asset(**item) for item in DEMO_ASSETS])
+        if db.query(Role).count() == 0:
+            db.add_all([Role(**item) for item in DEMO_ROLES])
+            db.flush()
+        if db.query(User).count() == 0:
+            role_map = {role.code: role for role in db.query(Role).all()}
+            for item in DEMO_USERS:
+                user = User(
+                    username=item["username"],
+                    password_hash=hash_password(item["password"]),
+                    real_name=item["real_name"],
+                )
+                user.roles.append(role_map[item["role_code"]])
+                db.add(user)
         db.commit()
     finally:
         db.close()

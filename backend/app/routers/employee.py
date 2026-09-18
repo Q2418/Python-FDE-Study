@@ -2,12 +2,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, load_only
 
+from ..core.deps import get_current_user, require_admin
 from ..core.response import success
 from ..database import get_db
 from ..models.employee import Employee
+from ..models.user import User
 from ..schemas.employee import EmployeeCreate, EmployeeListOut, EmployeeOut, EmployeeUpdate
 
-router = APIRouter(prefix="/api/employee", tags=["员工管理"])
+router = APIRouter(
+    prefix="/api/employee",
+    tags=["员工管理"],
+    dependencies=[Depends(get_current_user)],
+)
 
 LIST_FIELDS = (
     Employee.id,
@@ -50,7 +56,11 @@ def get_employee(emp_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("", summary="新增员工")
-def create_employee(data: EmployeeCreate, db: Session = Depends(get_db)):
+def create_employee(
+    data: EmployeeCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
     if db.query(Employee.id).filter(Employee.emp_no == data.emp_no).first():
         raise HTTPException(status_code=400, detail="工号已存在，请更换后重试")
     emp = Employee(**data.model_dump())
@@ -65,7 +75,12 @@ def create_employee(data: EmployeeCreate, db: Session = Depends(get_db)):
 
 
 @router.put("/{emp_id}", summary="修改员工")
-def update_employee(emp_id: int, data: EmployeeUpdate, db: Session = Depends(get_db)):
+def update_employee(
+    emp_id: int,
+    data: EmployeeUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
     emp = db.get(Employee, emp_id)
     if not emp:
         raise HTTPException(status_code=404, detail="员工不存在")
@@ -86,7 +101,11 @@ def update_employee(emp_id: int, data: EmployeeUpdate, db: Session = Depends(get
 
 
 @router.delete("/{emp_id}", summary="删除员工")
-def delete_employee(emp_id: int, db: Session = Depends(get_db)):
+def delete_employee(
+    emp_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_admin),
+):
     emp = db.get(Employee, emp_id)
     if not emp:
         raise HTTPException(status_code=404, detail="员工不存在")

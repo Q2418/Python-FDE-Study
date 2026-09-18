@@ -15,12 +15,16 @@
       <a href="/">首页</a>
       <a href="/employee">员工管理</a>
       <a href="/asset" class="active">资产管理</a>
+      <a href="/record">领用记录</a>
       <a href="/docs" target="_blank">接口文档</a>
     </aside>
     <div class="main">
       <div class="header">
         <div class="title">资产管理</div>
-        <div class="sub">阶段1 Demo · FastAPI + Vue3 + Element Plus</div>
+        <div class="header-right">
+          <span class="user-info">{{ userName }}<span class="role-tag">{{ roleName }}</span></span>
+          <el-button link type="primary" @click="logout">退出登录</el-button>
+        </div>
       </div>
       <div class="content">
         <div class="card">
@@ -34,7 +38,7 @@
               <el-button @click="resetSearch">重置</el-button>
             </div>
             <div class="left">
-              <el-button type="primary" @click="openAdd">新增资产</el-button>
+              <el-button v-if="isAdmin" type="primary" @click="openAdd">新增资产</el-button>
             </div>
           </div>
 
@@ -56,9 +60,10 @@
             <el-table-column label="领用人" width="100">
               <template #default="scope">{{ scope.row.user_id ? employeeName(scope.row.user_id) : "-" }}</template>
             </el-table-column>
-            <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
-            <el-table-column label="操作" width="140" fixed="right">
+            <el-table-column v-if="isAdmin" label="操作" width="210" fixed="right">
               <template #default="scope">
+                <el-button v-if="scope.row.status === '空闲'" link type="success" @click="openBorrow(scope.row)">领用</el-button>
+                <el-button v-if="scope.row.status === '已领用'" link type="warning" @click="doReturn(scope.row)">归还</el-button>
                 <el-button link type="primary" @click="openEdit(scope.row)">编辑</el-button>
                 <el-button link type="danger" @click="remove(scope.row)">删除</el-button>
               </template>
@@ -109,11 +114,6 @@
           <el-option v-for="s in statusOptions" :key="s" :label="s" :value="s" />
         </el-select>
       </el-form-item>
-      <el-form-item label="领用人" prop="user_id">
-        <el-select v-model="form.user_id" clearable filterable style="width: 100%" placeholder="选择领用员工（可选）">
-          <el-option v-for="emp in employees" :key="emp.id" :label="emp.name + '（' + emp.department + '）'" :value="emp.id" />
-        </el-select>
-      </el-form-item>
       <el-form-item label="备注" prop="remark">
         <el-input v-model="form.remark" type="textarea" :rows="2" placeholder="请输入备注" />
       </el-form-item>
@@ -123,12 +123,39 @@
       <el-button type="primary" :loading="saving" @click="save">保存</el-button>
     </template>
   </el-dialog>
+
+  <el-dialog v-model="borrowVisible" title="资产领用" width="480px" destroy-on-close>
+    <el-form ref="borrowFormRef" :model="borrowForm" :rules="borrowRules" label-width="90px">
+      <el-form-item label="资产">
+        <el-input :model-value="borrowAsset.name" disabled />
+      </el-form-item>
+      <el-form-item label="领用人" prop="employee_id">
+        <el-select v-model="borrowForm.employee_id" filterable style="width: 100%" placeholder="选择领用员工">
+          <el-option
+            v-for="emp in employees"
+            :key="emp.id"
+            :label="emp.name + '（' + (emp.department || '-') + '）'"
+            :value="emp.id"
+            :disabled="emp.status !== '在职'"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="备注" prop="remark">
+        <el-input v-model="borrowForm.remark" type="textarea" :rows="2" placeholder="选填" />
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="borrowVisible = false">取消</el-button>
+      <el-button type="primary" :loading="borrowSaving" @click="submitBorrow">确认领用</el-button>
+    </template>
+  </el-dialog>
 </div>
 
 <script src="/static/lib/vue.global.prod.js"></script>
 <script src="/static/lib/element-plus.full.min.js"></script>
 <script src="/static/lib/element-plus-zh-cn.min.js"></script>
 <script src="/static/lib/axios.min.js"></script>
+<script src="/static/app.js"></script>
 <script>
 const { createApp } = Vue;
 const { ElMessage, ElMessageBox } = ElementPlus;
@@ -150,13 +177,26 @@ createApp({
       dialogTitle: "新增资产",
       isEdit: false,
       form: {},
+      borrowVisible: false,
+      borrowSaving: false,
+      borrowAsset: {},
+      borrowForm: { employee_id: null, remark: "" },
+      isAdmin: AppAuth.isAdmin(),
+      userName: AppAuth.displayName(),
+      roleName: AppAuth.isAdmin() ? "管理员" : "普通员工",
       rules: {
         asset_no: [{ required: true, message: "请输入资产编号", trigger: "blur" }],
         name: [{ required: true, message: "请输入资产名称", trigger: "blur" }],
       },
+      borrowRules: {
+        employee_id: [{ required: true, message: "请选择领用人", trigger: "change" }],
+      },
     };
   },
   mounted() {
+    if (!AppAuth.requireLogin()) {
+      return;
+    }
     this.loadList();
     this.loadEmployees();
   },
@@ -175,7 +215,7 @@ createApp({
         this.list = res.data.data.items;
         this.total = res.data.data.total;
       } catch (e) {
-        ElMessage.error("加载资产列表失败");
+        ElMessage.error(AppAuth.errorMsg(e, "加载资产列表失败"));
       } finally {
         this.loading = false;
       }
@@ -238,10 +278,50 @@ createApp({
         this.dialogVisible = false;
         this.loadList();
       } catch (e) {
-        ElMessage.error((e.response && e.response.data && e.response.data.msg) || "保存失败");
+        ElMessage.error(AppAuth.errorMsg(e, "保存失败"));
       } finally {
         this.saving = false;
       }
+    },
+    openBorrow(row) {
+      this.borrowAsset = row;
+      this.borrowForm = { employee_id: null, remark: "" };
+      this.borrowVisible = true;
+    },
+    async submitBorrow() {
+      try {
+        await this.$refs.borrowFormRef.validate();
+      } catch (e) {
+        return;
+      }
+      this.borrowSaving = true;
+      try {
+        const res = await axios.post("/api/asset/" + this.borrowAsset.id + "/borrow", this.borrowForm);
+        ElMessage.success(res.data.msg || "领用成功");
+        this.borrowVisible = false;
+        this.loadList();
+      } catch (e) {
+        ElMessage.error(AppAuth.errorMsg(e, "领用失败"));
+      } finally {
+        this.borrowSaving = false;
+      }
+    },
+    doReturn(row) {
+      ElMessageBox.confirm("确定归还资产「" + row.name + "」吗？", "归还确认", {
+        type: "warning",
+        confirmButtonText: "确认归还",
+        cancelButtonText: "取消",
+      })
+        .then(async () => {
+          try {
+            const res = await axios.post("/api/asset/" + row.id + "/return", {});
+            ElMessage.success(res.data.msg || "归还成功");
+            this.loadList();
+          } catch (e) {
+            ElMessage.error(AppAuth.errorMsg(e, "归还失败"));
+          }
+        })
+        .catch(() => {});
     },
     remove(row) {
       ElMessageBox.confirm("确定删除资产「" + row.name + "」吗？", "提示", {
@@ -258,10 +338,13 @@ createApp({
             }
             this.loadList();
           } catch (e) {
-            ElMessage.error((e.response && e.response.data && e.response.data.msg) || "删除失败");
+            ElMessage.error(AppAuth.errorMsg(e, "删除失败"));
           }
         })
         .catch(() => {});
+    },
+    logout() {
+      AppAuth.logout();
     },
   },
 }).use(ElementPlus, { locale: ElementPlusLocaleZhCn }).mount("#app");

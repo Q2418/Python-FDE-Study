@@ -12,7 +12,7 @@ from .config import APP_TITLE, APP_VERSION
 from .core.exception import register_exception_handlers
 from .database import Base, engine
 from .init_data import init_demo_data
-from .routers import asset, employee
+from .routers import asset, auth, employee, record
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 
@@ -38,8 +38,10 @@ app.add_middleware(
 
 register_exception_handlers(app)
 
+app.include_router(auth.router)
 app.include_router(employee.router)
 app.include_router(asset.router)
+app.include_router(record.router)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -47,6 +49,11 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/", include_in_schema=False)
 def index_page():
     return FileResponse(STATIC_DIR / "index.html")
+
+
+@app.get("/login", include_in_schema=False)
+def login_page():
+    return FileResponse(STATIC_DIR / "login.html")
 
 
 @app.get("/employee", include_in_schema=False)
@@ -57,3 +64,8 @@ def employee_page():
 @app.get("/asset", include_in_schema=False)
 def asset_page():
     return FileResponse(STATIC_DIR / "asset.html")
+
+
+@app.get("/record", include_in_schema=False)
+def record_page():
+    return FileResponse(STATIC_DIR / "record.html")

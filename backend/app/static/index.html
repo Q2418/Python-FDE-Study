@@ -15,12 +15,16 @@
       <a href="/" class="active">首页</a>
       <a href="/employee">员工管理</a>
       <a href="/asset">资产管理</a>
+      <a href="/record">领用记录</a>
       <a href="/docs" target="_blank">接口文档</a>
     </aside>
     <div class="main">
       <div class="header">
         <div class="title">系统首页</div>
-        <div class="sub">阶段1 Demo · FastAPI + Vue3 + Element Plus</div>
+        <div class="header-right">
+          <span class="user-info">{{ userName }}<span class="role-tag">{{ roleName }}</span></span>
+          <el-button link type="primary" @click="logout">退出登录</el-button>
+        </div>
       </div>
       <div class="content">
         <div class="stat-grid">
@@ -39,11 +43,10 @@
         </div>
         <div class="card">
           <div class="intro">
-            <p><b>项目：</b>企业人员资产管理后台系统（FDE 工程师培训 · 阶段1 Demo）</p>
-            <p><b>技术栈：</b>FastAPI + SQLAlchemy + PyMySQL + Vue3 + Element Plus，数据库默认 SQLite（改一行配置即可切换 MySQL）</p>
-            <p><b>已实现：</b>员工表 / 资产表建表 SQL、后端 CRUD 接口、前端管理页面（增删改查 + 条件搜索 + 分页）</p>
-            <p><b>接口文档：</b><a href="/docs" target="_blank">/docs</a>（Swagger UI，可直接在线调试所有接口）</p>
-            <p><b>页面入口：</b><a href="/employee">员工管理</a> ｜ <a href="/asset">资产管理</a></p>
+            <p><b>项目：</b>企业人员资产管理后台系统（FDE 工程师培训 · 阶段3）</p>
+            <p><b>技术栈：</b>FastAPI + SQLAlchemy + JWT 鉴权 + Vue3 + Element Plus，数据库默认 SQLite（改一行配置即可切换 MySQL）</p>
+            <p><b>已实现：</b>登录认证与角色权限、员工/资产管理（增删改查 + 搜索 + 分页）、资产领用/归还与状态流转、领用记录追溯</p>
+            <p><b>接口文档：</b><a href="/docs" target="_blank">/docs</a>（Swagger UI，可在线调试所有接口）</p>
           </div>
         </div>
       </div>
@@ -55,6 +58,7 @@
 <script src="/static/lib/element-plus.full.min.js"></script>
 <script src="/static/lib/element-plus-zh-cn.min.js"></script>
 <script src="/static/lib/axios.min.js"></script>
+<script src="/static/app.js"></script>
 <script>
 const { createApp } = Vue;
 
@@ -64,21 +68,33 @@ createApp({
       employeeTotal: 0,
       assetTotal: 0,
       idleTotal: 0,
+      userName: AppAuth.displayName(),
+      roleName: AppAuth.isAdmin() ? "管理员" : "普通员工",
     };
   },
   mounted() {
+    if (!AppAuth.requireLogin()) {
+      return;
+    }
     this.loadStats();
   },
   methods: {
     async loadStats() {
-      const [emp, ast, idle] = await Promise.all([
-        axios.get("/api/employee/list", { params: { page: 1, size: 1 } }),
-        axios.get("/api/asset/list", { params: { page: 1, size: 1 } }),
-        axios.get("/api/asset/list", { params: { page: 1, size: 1, status: "空闲" } }),
-      ]);
-      this.employeeTotal = emp.data.data.total;
-      this.assetTotal = ast.data.data.total;
-      this.idleTotal = idle.data.data.total;
+      try {
+        const [emp, ast, idle] = await Promise.all([
+          axios.get("/api/employee/list", { params: { page: 1, size: 1 } }),
+          axios.get("/api/asset/list", { params: { page: 1, size: 1 } }),
+          axios.get("/api/asset/list", { params: { page: 1, size: 1, status: "空闲" } }),
+        ]);
+        this.employeeTotal = emp.data.data.total;
+        this.assetTotal = ast.data.data.total;
+        this.idleTotal = idle.data.data.total;
+      } catch (e) {
+        // 401 时拦截器已跳转登录页
+      }
+    },
+    logout() {
+      AppAuth.logout();
     },
   },
 }).use(ElementPlus, { locale: ElementPlusLocaleZhCn }).mount("#app");

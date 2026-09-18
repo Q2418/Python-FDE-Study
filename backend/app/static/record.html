@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>领用记录 - 企业人员资产管理后台系统</title>
+  <link rel="stylesheet" href="/static/lib/element-plus.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app" v-cloak>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">资产管理系统</div>
+      <a href="/">首页</a>
+      <a href="/employee">员工管理</a>
+      <a href="/asset">资产管理</a>
+      <a href="/record" class="active">领用记录</a>
+      <a href="/docs" target="_blank">接口文档</a>
+    </aside>
+    <div class="main">
+      <div class="header">
+        <div class="title">领用记录</div>
+        <div class="header-right">
+          <span class="user-info">{{ userName }}<span class="role-tag">{{ roleName }}</span></span>
+          <el-button link type="primary" @click="logout">退出登录</el-button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card">
+          <div class="toolbar">
+            <div class="left">
+              <el-input v-model="searchForm.assetName" placeholder="按资产名称搜索" clearable style="width: 180px" @keyup.enter="search" />
+              <el-select v-model="searchForm.action" placeholder="按操作类型筛选" clearable style="width: 160px">
+                <el-option label="领用" value="领用" />
+                <el-option label="归还" value="归还" />
+              </el-select>
+              <el-button type="primary" @click="search">查询</el-button>
+              <el-button @click="resetSearch">重置</el-button>
+            </div>
+          </div>
+
+          <el-table :data="list" border stripe v-loading="loading" style="width: 100%">
+            <el-table-column prop="asset_no" label="资产编号" width="120" />
+            <el-table-column prop="asset_name" label="资产名称" min-width="140" show-overflow-tooltip />
+            <el-table-column label="操作类型" width="100">
+              <template #default="scope">
+                <el-tag :type="scope.row.action === '领用' ? 'warning' : 'success'">{{ scope.row.action }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="employee_name" label="领用人" width="100" />
+            <el-table-column prop="operator_name" label="操作人" width="120" />
+            <el-table-column prop="remark" label="备注" min-width="150" show-overflow-tooltip />
+            <el-table-column label="操作时间" width="170">
+              <template #default="scope">{{ formatTime(scope.row.create_time) }}</template>
+            </el-table-column>
+          </el-table>
+
+          <div class="pager">
+            <el-pagination
+              layout="total, prev, pager, next"
+              :total="total"
+              :page-size="size"
+              :current-page="page"
+              @current-change="onPageChange"
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/lib/vue.global.prod.js"></script>
+<script src="/static/lib/element-plus.full.min.js"></script>
+<script src="/static/lib/element-plus-zh-cn.min.js"></script>
+<script src="/static/lib/axios.min.js"></script>
+<script src="/static/app.js"></script>
+<script>
+const { createApp } = Vue;
+const { ElMessage } = ElementPlus;
+
+createApp({
+  data() {
+    return {
+      list: [],
+      total: 0,
+      page: 1,
+      size: 10,
+      loading: false,
+      searchForm: { assetName: "", action: "" },
+      userName: AppAuth.displayName(),
+      roleName: AppAuth.isAdmin() ? "管理员" : "普通员工",
+    };
+  },
+  mounted() {
+    if (!AppAuth.requireLogin()) {
+      return;
+    }
+    this.loadList();
+  },
+  methods: {
+    async loadList() {
+      this.loading = true;
+      try {
+        const res = await axios.get("/api/record/list", {
+          params: {
+            page: this.page,
+            size: this.size,
+            asset_name: this.searchForm.assetName,
+            action: this.searchForm.action,
+          },
+        });
+        this.list = res.data.data.items;
+        this.total = res.data.data.total;
+      } catch (e) {
+        ElMessage.error(AppAuth.errorMsg(e, "加载领用记录失败"));
+      } finally {
+        this.loading = false;
+      }
+    },
+    search() {
+      this.page = 1;
+      this.loadList();
+    },
+    resetSearch() {
+      this.searchForm = { assetName: "", action: "" };
+      this.search();
+    },
+    onPageChange(p) {
+      this.page = p;
+      this.loadList();
+    },
+    formatTime(value) {
+      return value ? value.replace("T", " ").slice(0, 19) : "-";
+    },
+    logout() {
+      AppAuth.logout();
+    },
+  },
+}).use(ElementPlus, { locale: ElementPlusLocaleZhCn }).mount("#app");
+</script>
+</body>
+</html>
