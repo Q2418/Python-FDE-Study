@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from ..config import ACCESS_TOKEN_EXPIRE_MINUTES
 from ..core.deps import get_current_user
+from ..core.logger import log_operation
 from ..core.response import success
 from ..core.security import create_access_token, verify_password
 from ..database import get_db
@@ -16,8 +17,10 @@ router = APIRouter(prefix="/api/auth", tags=["登录认证"])
 def login(data: LoginRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == data.username).first()
     if not user or not verify_password(data.password, user.password_hash):
+        log_operation(data.username, "登录失败", "账号或密码错误")
         raise HTTPException(status_code=401, detail="账号或密码错误")
     if user.status != "启用":
+        log_operation(user, "登录失败", "账号已被禁用")
         raise HTTPException(status_code=403, detail="账号已被禁用，请联系管理员")
     role_codes = [role.code for role in user.roles]
     token = create_access_token(user.id, user.username, role_codes)
@@ -26,6 +29,7 @@ def login(data: LoginRequest, db: Session = Depends(get_db)):
         expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         user=UserInfo.from_user(user),
     )
+    log_operation(user, "登录成功", f"角色：{'、'.join(role_codes)}")
     return success(payload.model_dump(), msg="登录成功")
 
 

@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 助手 - 企业人员资产管理后台系统</title>
+  <link rel="stylesheet" href="/static/lib/element-plus.css">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<div id="app" v-cloak>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">资产管理系统</div>
+      <a href="/">首页</a>
+      <a href="/employee">员工管理</a>
+      <a href="/asset">资产管理</a>
+      <a href="/record">领用记录</a>
+      <a href="/ai" class="active">AI 助手</a>
+      <a href="/docs" target="_blank">接口文档</a>
+    </aside>
+    <div class="main">
+      <div class="header">
+        <div class="title">AI 助手</div>
+        <div class="header-right">
+          <span class="user-info">{{ userName }}<span class="role-tag">{{ roleName }}</span></span>
+          <el-button link type="primary" @click="logout">退出登录</el-button>
+        </div>
+      </div>
+      <div class="content">
+        <div class="card">
+          <el-tabs v-model="activeTab">
+            <el-tab-pane label="知识库问答（RAG）" name="qa">
+              <template v-if="isAdmin">
+                <div class="ai-label">知识库文档</div>
+                <div class="toolbar">
+                  <div class="left">
+                    <el-upload :show-file-list="false" :http-request="uploadDoc" accept=".txt,.md,.docx">
+                      <el-button type="primary" :loading="uploading">上传文档</el-button>
+                    </el-upload>
+                    <span class="upload-tip">支持 txt / md / docx，不超过 5MB</span>
+                  </div>
+                </div>
+                <el-table :data="documents" size="small" border style="width: 100%">
+                  <el-table-column prop="filename" label="文档名称" min-width="220" show-overflow-tooltip />
+                  <el-table-column prop="chunk_count" label="切片数" width="90" />
+                  <el-table-column label="上传时间" width="180">
+                    <template #default="scope">{{ formatTime(scope.row.create_time) }}</template>
+                  </el-table-column>
+                  <el-table-column label="操作" width="80">
+                    <template #default="scope">
+                      <el-button link type="danger" @click="removeDoc(scope.row)">删除</el-button>
+                    </template>
+                  </el-table-column>
+                </el-table>
+              </template>
+
+              <div class="ai-label">提问</div>
+              <el-input v-model="question" type="textarea" :rows="3" placeholder="基于已上传的文档提问，例如：资产领用的业务流程是什么？" />
+              <div style="margin-top: 10px">
+                <el-button type="primary" :loading="asking" @click="ask">提问</el-button>
+                <span class="upload-tip" v-if="mode">当前模式：{{ mode === "mock" ? "模拟模式（未配置 AI_API_KEY）" : "真实大模型" }}</span>
+              </div>
+
+              <div v-if="answer" class="ai-answer">
+                <div class="ai-label">回答</div>
+                <pre class="ai-pre">{{ answer }}</pre>
+                <div v-if="sources.length">
+                  <div class="ai-label">参考来源</div>
+                  <ul class="ai-sources">
+                    <li v-for="(s, i) in sources" :key="i">{{ s.document }}（相关度 {{ s.score }}）：{{ s.snippet }}</li>
+                  </ul>
+                </div>
+              </div>
+            </el-tab-pane>
+
+            <el-tab-pane label="数据助手（工具调用）" name="chat">
+              <div class="ai-label">自然语言查询业务数据</div>
+              <el-input
+                v-model="message"
+                placeholder="例如：技术部有哪些员工？ / 现在空闲的资产有哪些？ / 最近的领用记录"
+                @keyup.enter="sendChat"
+              />
+              <div style="margin-top: 10px">
+                <el-button type="primary" :loading="chatting" @click="sendChat">发送</el-button>
+                <span class="upload-tip">大模型会自动选择查询工具，从数据库获取真实数据后回答</span>
+              </div>
+              <div v-if="chatAnswer" class="ai-answer">
+                <div class="ai-label">回答</div>
+                <pre class="ai-pre">{{ chatAnswer }}</pre>
+                <div v-if="chatTool" class="upload-tip" style="margin-left: 0; margin-top: 8px">
+                  调用工具：{{ chatTool.name }}，参数：{{ JSON.stringify(chatTool.arguments) }}
+                </div>
+              </div>
+            </el-tab-pane>
+          </el-tabs>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="/static/lib/vue.global.prod.js"></script>
+<script src="/static/lib/element-plus.full.min.js"></script>
+<script src="/static/lib/element-plus-zh-cn.min.js"></script>
+<script src="/static/lib/axios.min.js"></script>
+<script src="/static/app.js"></script>
+<script>
+const { createApp } = Vue;
+const { ElMessage, ElMessageBox } = ElementPlus;
+
+createApp({
+  data() {
+    return {
+      activeTab: "qa",
+      isAdmin: AppAuth.isAdmin(),
+      userName: AppAuth.displayName(),
+      roleName: AppAuth.isAdmin() ? "管理员" : "普通员工",
+      documents: [],
+      uploading: false,
+      question: "",
+      asking: false,
+      answer: "",
+      sources: [],
+      mode: "",
+      message: "",
+      chatting: false,
+      chatAnswer: "",
+      chatTool: null,
+    };
+  },
+  mounted() {
+    if (!AppAuth.requireLogin()) {
+      return;
+    }
+    this.loadDocuments();
+  },
+  methods: {
+    async loadDocuments() {
+      try {
+        const res = await axios.get("/api/ai/document/list");
+        this.documents = res.data.data;
+      } catch (e) {
+        this.documents = [];
+      }
+    },
+    async uploadDoc(options) {
+      const formData = new FormData();
+      formData.append("file", options.file);
+      this.uploading = true;
+      try {
+        await axios.post("/api/ai/document", formData);
+        ElMessage.success("文档上传成功");
+        this.loadDocuments();
+      } catch (e) {
+        ElMessage.error(AppAuth.errorMsg(e, "文档上传失败"));
+      } finally {
+        this.uploading = false;
+      }
+    },
+    removeDoc(row) {
+      ElMessageBox.confirm("确定删除文档「" + row.filename + "」及其切片吗？", "提示", { type: "warning" })
+        .then(async () => {
+          try {
+            await axios.delete("/api/ai/document/" + row.id);
+            ElMessage.success("删除成功");
+            this.loadDocuments();
+          } catch (e) {
+            ElMessage.error(AppAuth.errorMsg(e, "删除失败"));
+          }
+        })
+        .catch(() => {});
+    },
+    async ask() {
+      if (!this.question.trim()) {
+        ElMessage.warning("请输入问题");
+        return;
+      }
+      this.asking = true;
+      try {
+        const res = await axios.post("/api/ai/ask", { question: this.question, top_k: 3 });
+        this.answer = res.data.data.answer;
+        this.sources = res.data.data.sources;
+        this.mode = res.data.data.mode;
+      } catch (e) {
+        ElMessage.error(AppAuth.errorMsg(e, "提问失败"));
+      } finally {
+        this.asking = false;
+      }
+    },
+    async sendChat() {
+      if (!this.message.trim()) {
+        ElMessage.warning("请输入问题");
+        return;
+      }
+      this.chatting = true;
+      try {
+        const res = await axios.post("/api/ai/chat", { message: this.message });
+        this.chatAnswer = res.data.data.answer;
+        this.chatTool = res.data.data.tool;
+      } catch (e) {
+        ElMessage.error(AppAuth.errorMsg(e, "查询失败"));
+      } finally {
+        this.chatting = false;
+      }
+    },
+    formatTime(value) {
+      return value ? value.replace("T", " ").slice(0, 19) : "-";
+    },
+    logout() {
+      AppAuth.logout();
+    },
+  },
+}).use(ElementPlus, { locale: ElementPlusLocaleZhCn }).mount("#app");
+</script>
+</body>
+</html>

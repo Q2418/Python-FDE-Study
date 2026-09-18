@@ -15,3 +15,7 @@ venv/
 
 # 日志
 *.log
+logs/
+
+# 运行时上传文件
+uploads/

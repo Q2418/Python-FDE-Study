@@ -213,3 +213,41 @@ body {
   color: #1677ff;
   text-decoration: none;
 }
+
+.upload-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-left: 8px;
+}
+
+.ai-label {
+  font-weight: 600;
+  margin: 16px 0 8px;
+}
+
+.ai-label:first-child {
+  margin-top: 0;
+}
+
+.ai-pre {
+  white-space: pre-wrap;
+  background: #f5f7fa;
+  padding: 12px 14px;
+  border-radius: 6px;
+  line-height: 1.9;
+  font-family: inherit;
+  font-size: 14px;
+  margin: 0;
+}
+
+.ai-sources {
+  padding-left: 18px;
+  color: #606266;
+  font-size: 13px;
+  line-height: 1.9;
+  margin: 0;
+}
+
+.ai-answer {
+  margin-top: 16px;
+}

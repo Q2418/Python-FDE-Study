@@ -19,5 +19,7 @@ class Employee(Base):
     email = Column(String(100), comment="邮箱")
     hire_date = Column(Date, comment="入职日期")
     status = Column(String(10), default="在职", comment="状态：在职/离职")
+    attachment_path = Column(String(255), comment="附件存储路径")
+    attachment_name = Column(String(255), comment="附件原始文件名")
     create_time = Column(DateTime, server_default=func.now(), comment="创建时间")
     update_time = Column(DateTime, server_default=func.now(), onupdate=func.now(), comment="更新时间")

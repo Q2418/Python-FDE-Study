@@ -10,19 +10,21 @@ from fastapi.staticfiles import StaticFiles
 from . import models  # noqa: F401  确保模型注册到 Base
 from .config import APP_TITLE, APP_VERSION
 from .core.exception import register_exception_handlers
-from .database import Base, engine
+from .core.logging_conf import setup_logging
+from .database import Base, engine, ensure_schema
 from .init_data import init_demo_data
-from .routers import asset, auth, employee, record
-
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+from .routers import ai, asset, auth, employee, record
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    setup_logging()
     Base.metadata.create_all(bind=engine)
+    ensure_schema()
     init_demo_data()
+    logging.getLogger("asset_admin").info("系统启动完成：%s v%s", APP_TITLE, APP_VERSION)
     yield
 
 
@@ -42,6 +44,7 @@ app.include_router(auth.router)
 app.include_router(employee.router)
 app.include_router(asset.router)
 app.include_router(record.router)
+app.include_router(ai.router)
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -69,3 +72,8 @@ def asset_page():
 @app.get("/record", include_in_schema=False)
 def record_page():
     return FileResponse(STATIC_DIR / "record.html")
+
+
+@app.get("/ai", include_in_schema=False)
+def ai_page():
+    return FileResponse(STATIC_DIR / "ai.html")

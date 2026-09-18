@@ -53,12 +53,14 @@ class EmployeeListOut(BaseModel):
     email: Optional[str] = None
     hire_date: Optional[date] = None
     status: Optional[str] = None
+    attachment_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
 
 class EmployeeOut(EmployeeBase):
     id: int
+    attachment_name: Optional[str] = None
     create_time: Optional[datetime] = None
     update_time: Optional[datetime] = None
 

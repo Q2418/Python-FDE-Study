@@ -24,6 +24,8 @@ CREATE TABLE `employee` (
   `email`       VARCHAR(100) DEFAULT NULL            COMMENT '邮箱',
   `hire_date`   DATE         DEFAULT NULL            COMMENT '入职日期',
   `status`      VARCHAR(10)  DEFAULT '在职'          COMMENT '状态：在职/离职',
+  `attachment_path` VARCHAR(255) DEFAULT NULL        COMMENT '附件存储路径',
+  `attachment_name` VARCHAR(255) DEFAULT NULL        COMMENT '附件原始文件名',
   `create_time` DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`id`),
@@ -110,6 +112,35 @@ CREATE TABLE `asset_record` (
   KEY `idx_asset_id` (`asset_id`),
   KEY `idx_employee_id` (`employee_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='资产领用记录表';
+
+-- ------------------------------------------------------------
+-- AI 知识库文档表
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS `ai_document`;
+CREATE TABLE `ai_document` (
+  `id`          INT          NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `filename`    VARCHAR(255) NOT NULL                COMMENT '原始文件名',
+  `file_path`   VARCHAR(255) NOT NULL                COMMENT '存储路径',
+  `file_size`   INT          DEFAULT 0               COMMENT '文件大小(字节)',
+  `chunk_count` INT          DEFAULT 0               COMMENT '切片数量',
+  `uploader_id` INT          DEFAULT NULL            COMMENT '上传人用户ID（关联user.id）',
+  `create_time` DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI知识库文档表';
+
+-- ------------------------------------------------------------
+-- AI 知识库切片表
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS `ai_chunk`;
+CREATE TABLE `ai_chunk` (
+  `id`          INT  NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `document_id` INT  NOT NULL                COMMENT '文档ID（关联ai_document.id）',
+  `seq`         INT  DEFAULT 0               COMMENT '切片序号',
+  `content`     TEXT NOT NULL                COMMENT '切片内容',
+  `create_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`),
+  KEY `idx_document_id` (`document_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI知识库切片表';
 
 -- ------------------------------------------------------------
 -- 演示数据（可选）
