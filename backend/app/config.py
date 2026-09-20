@@ -42,3 +42,27 @@ AI_API_KEY = ""
 AI_MODEL = "deepseek-chat"
 AI_TIMEOUT_SECONDS = 30
 AI_ENABLED = bool(AI_API_KEY)
+
+# ------------------------------------------------------------
+# 阶段5：提示词固化 / 项目 RAG / Skills / Agent 工作流 配置
+# ------------------------------------------------------------
+PROJECT_ROOT = BASE_DIR.parent
+PROMPTS_FILE = BASE_DIR / "config" / "prompts.yaml"
+
+RAG_CHUNK_SIZE = 400
+RAG_CHUNK_OVERLAP = 50
+RAG_TOP_K = 3
+RAG_MIN_SCORE = 0.05
+
+PROJECT_CHUNK_SIZE = 800
+PROJECT_CHUNK_OVERLAP = 100
+PROJECT_SCAN_DIRS = ["backend/app", "sql", "docs"]
+PROJECT_SCAN_FILES = ["README.md"]
+PROJECT_ALLOWED_EXTENSIONS = {".py", ".sql", ".md", ".yaml", ".json"}
+
+SKILL_FILE_MAX_CHARS = 4000
+SKILL_FILE_MAX_BYTES = 200 * 1024
+SKILL_ALLOWED_EXTENSIONS = {".py", ".sql", ".md", ".json", ".yaml", ".yml", ".html", ".js", ".css", ".txt", ".bat", ".ini"}
+
+WORKFLOW_MAX_REVIEW_ROUNDS = 2
+WORKFLOW_MAX_CONTEXT_CHARS = 6000

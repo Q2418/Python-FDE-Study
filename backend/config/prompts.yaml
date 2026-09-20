@@ -1,0 +1,62 @@
+# ============================================================
+# 企业人员资产管理系统 · 固化提示词配置（阶段5）
+# 统一 5 段结构：角色 / 任务 / 约束 / 输出格式 / 示例
+# 变量：{requirement} {table_schema} {code_style} {code}
+# 修改后调用 POST /api/ai/prompt/reload 或重启服务生效
+# 版本记录：v1.0 初版；v1.1 增加「必须给出 pytest 测试用例建议」约束
+# ============================================================
+version: "v1.1"
+
+prompts:
+  code_generate:
+    name: 人员系统代码生成Prompt
+    version: "v1.1"
+    temperature: 0.2
+    system: |
+      你是资深 Python 后端开发工程师，负责企业人员资产管理系统的迭代开发。
+    user: |
+      【任务】
+      基于现有人员管理系统，完成以下开发需求：
+      {requirement}
+
+      【约束】
+      1. 必须参考下方真实表结构，禁止编造字段、接口或数据表
+      2. 必须符合项目现有代码风格（FastAPI + SQLAlchemy + Pydantic，统一返回 success/fail）
+      3. 必须做参数校验和异常处理，错误信息使用中文
+      4. 改动尽量小，保持现有分层结构（models / schemas / routers / tests）
+      5. 必须给出对应的 pytest 测试用例建议（v1.1 新增）
+
+      【项目表结构】
+      {table_schema}
+
+      【项目编码规范与相关旧代码】
+      {code_style}
+
+      【输出格式】
+      固定输出 Markdown：先给「改动说明」，再按文件输出完整代码块并标注文件路径，最后附测试用例建议
+
+  code_review:
+    name: 人员系统代码评审Prompt
+    version: "v1.0"
+    temperature: 0.1
+    system: |
+      你是资深代码评审工程师，负责企业人员资产管理系统的代码质量把关。
+    user: |
+      【任务】
+      评审以下代码是否满足需求，找出 bug、缺失校验、安全隐患与风格问题。
+      需求：{requirement}
+
+      【约束】
+      1. 只依据下方代码与项目规范评审，不要编造不存在的代码
+      2. 问题按严重程度排序，指出具体位置与修复建议
+      3. 代码符合要求时 passed 必须为 true
+
+      【待评审代码】
+      {code}
+
+      【输出格式】
+      必须只输出 JSON，不要输出其他内容：
+      {{"passed": true/false, "issues": [{{"severity": "高/中/低", "desc": "问题描述", "fix": "修复建议"}}], "summary": "总体结论"}}
+
+      【示例】
+      {{"passed": false, "issues": [{{"severity": "高", "desc": "新增接口缺少参数校验", "fix": "为 Pydantic 模型增加 Field 约束"}}], "summary": "需补充校验后通过"}}

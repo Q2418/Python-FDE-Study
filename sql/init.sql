@@ -119,10 +119,11 @@ CREATE TABLE `asset_record` (
 DROP TABLE IF EXISTS `ai_document`;
 CREATE TABLE `ai_document` (
   `id`          INT          NOT NULL AUTO_INCREMENT COMMENT '主键ID',
-  `filename`    VARCHAR(255) NOT NULL                COMMENT '原始文件名',
+  `filename`    VARCHAR(255) NOT NULL                COMMENT '原始文件名（项目资料为相对路径）',
   `file_path`   VARCHAR(255) NOT NULL                COMMENT '存储路径',
   `file_size`   INT          DEFAULT 0               COMMENT '文件大小(字节)',
   `chunk_count` INT          DEFAULT 0               COMMENT '切片数量',
+  `category`    VARCHAR(20)  DEFAULT 'upload'        COMMENT '来源：upload 上传 / project 项目资料',
   `uploader_id` INT          DEFAULT NULL            COMMENT '上传人用户ID（关联user.id）',
   `create_time` DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '上传时间',
   PRIMARY KEY (`id`)
@@ -141,6 +142,23 @@ CREATE TABLE `ai_chunk` (
   PRIMARY KEY (`id`),
   KEY `idx_document_id` (`document_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI知识库切片表';
+
+-- ------------------------------------------------------------
+-- AI 工作流运行记录表
+-- ------------------------------------------------------------
+DROP TABLE IF EXISTS `ai_workflow_run`;
+CREATE TABLE `ai_workflow_run` (
+  `id`            INT          NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `requirement`   TEXT         NOT NULL                COMMENT '开发需求',
+  `status`        VARCHAR(20)  DEFAULT '成功'          COMMENT '状态：成功/失败',
+  `review_rounds` INT          DEFAULT 0               COMMENT '评审循环轮次',
+  `steps`         TEXT         DEFAULT NULL            COMMENT '步骤日志(JSON)',
+  `result`        TEXT         DEFAULT NULL            COMMENT '最终产出代码',
+  `duration_ms`   INT          DEFAULT 0               COMMENT '总耗时(毫秒)',
+  `operator_id`   INT          DEFAULT NULL            COMMENT '操作人用户ID（关联user.id）',
+  `create_time`   DATETIME     DEFAULT CURRENT_TIMESTAMP COMMENT '运行时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='AI工作流运行记录表';
 
 -- ------------------------------------------------------------
 -- 演示数据（可选）

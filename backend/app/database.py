@@ -30,6 +30,7 @@ def ensure_schema():
     statements = [
         "ALTER TABLE employee ADD COLUMN attachment_path VARCHAR(255)",
         "ALTER TABLE employee ADD COLUMN attachment_name VARCHAR(255)",
+        "ALTER TABLE ai_document ADD COLUMN category VARCHAR(20) DEFAULT 'upload'",
     ]
     with engine.connect() as conn:
         for statement in statements:

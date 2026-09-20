@@ -5,6 +5,7 @@ FDE 工程师培训项目（8 周迭代，同一项目逐阶段升级）：
 - 阶段2：企业级规范化改造（统一返回 + 全局异常 + 参数校验 + 进阶查询 + 单元测试）
 - 阶段3：登录认证与角色权限 + 前端联调 + 资产领用/归还状态流转 + 领用记录
 - 阶段4：附件上传/Excel 导出/高级查询/日志 + AI 知识库问答（RAG）+ 工具调用 + 部署交付
+- 阶段5：AI 工程化（提示词固化 + 项目专属 RAG + Skills 工具 + Agent 自动开发工作流）
 
 ## 技术栈
 
@@ -13,7 +14,8 @@ FDE 工程师培训项目（8 周迭代，同一项目逐阶段升级）：
 - 前端：Vue3 + Element Plus + Axios（依赖本地化，离线可用，无需 npm 构建）
 - 文件/报表：python-multipart（上传）+ openpyxl（Excel 导出）+ python-docx（知识库文档解析）
 - AI：OpenAI 兼容接口（DeepSeek/通义/智谱等），未配置 key 时自动使用内置模拟模式
-- 测试：pytest + httpx（50 个用例）
+- AI 工程化：固化提示词（YAML）+ 项目 RAG 知识库 + Skills 工具注册表 + Agent 工作流编排
+- 测试：pytest + httpx（62 个用例）
 
 ## 目录结构
 
@@ -28,6 +30,8 @@ asset-admin/
 │   ├── 阶段3-AI作业记录.md
 │   └── 阶段4-AI作业记录.md    # AI 问题清单 + 风险识别 + 部署交付说明
 └── backend/
+    ├── config/
+    │   └── prompts.yaml      # 固化提示词配置（5 段结构：角色/任务/约束/输出格式/示例）
     ├── start.bat             # 一键启动（自动建虚拟环境 + 装依赖 + 启动）
     ├── requirements.txt      # 依赖清单
     ├── run.py                # 启动入口（python run.py）
@@ -47,9 +51,11 @@ asset-admin/
         │   ├── logging_conf.py  # 日志配置（文件滚动）
         │   ├── logger.py     # 关键操作日志
         │   ├── llm.py        # 大模型客户端（真实 + 模拟模式 + 超时异常）
-        │   ├── prompts.py    # 固化提示词（系统/用户提示词分离）
-        │   ├── rag.py        # 文档解析/切片/检索
-        │   └── tools.py      # 工具定义与执行（Function Call）
+        │   ├── prompts.py    # 基础问答/工具提示词
+        │   ├── prompt_manager.py  # 固化提示词加载/渲染/版本（读 config/prompts.yaml）
+        │   ├── rag.py        # 文档解析/切片/检索 + 项目知识库重建
+        │   ├── skills.py     # Skills 注册表（数据/表结构/项目文件读取，沙箱防护）
+        │   └── workflow.py   # Agent 自动开发工作流（六步 + 循环评审 + 防护机制）
         ├── models/           # ORM：employee/asset/user/asset_record/ai_document/ai_chunk
         ├── schemas/          # Pydantic 校验模型
         ├── routers/          # auth / employee / asset / record / ai
@@ -104,7 +110,9 @@ AI_API_KEY = "sk-你的key"
 AI_MODEL = "deepseek-chat"
 ```
 
-重启后自动切换为真实模型：知识库问答（RAG）由模型总结并引用来源；数据助手由模型选择工具查询真实数据。
+重启后自动切换为真实模型：知识库问答（RAG）由模型总结并引用来源；数据助手由模型选择工具查询真实数据；Agent 工作流由模型完成代码生成与评审。
+
+**固化提示词**：位于 `backend/config/prompts.yaml`（5 段结构，支持 `{requirement}` `{table_schema}` `{code_style}` `{code}` 变量），修改后调用 `POST /api/ai/prompt/reload` 或重启服务生效，改 Prompt 不用改业务代码。
 
 ## 功能清单
 
@@ -116,7 +124,11 @@ AI_MODEL = "deepseek-chat"
 - 日志：`logs/app.log` 滚动记录登录、增删改、领用归还、导出、AI 调用等关键操作
 - AI 知识库（RAG）：上传 txt/md/docx → 切片入库 → 检索 Top-K → 问答并附来源
 - AI 数据助手：自然语言 → 模型选择工具（员工/资产/记录查询）→ 真实数据回答
-- 统一返回、全局异常中文提示、pytest 50 个用例、Postman 24 个请求集合
+- AI 提示词固化：`config/prompts.yaml` 两套标准 Prompt（代码生成/代码评审），变量渲染 + 热重载
+- 项目 RAG：一键扫描项目文档与代码入库（表结构 SQL / README / docs / 后端代码），检索参数可调
+- Skills 工具：数据查询、表结构查询、项目文件读取（路径沙箱 + 扩展名白名单 + 大小限制），统一注册表与异常兜底
+- Agent 工作流：六步自动开发（读表结构→检索知识库→生成→评审→回炉→输出），循环轮次上限 + 上下文截断 + 每步异常兜底，运行记录可追溯
+- 统一返回、全局异常中文提示、pytest 62 个用例、Postman 30 个请求集合
 
 ## 单元测试
 
@@ -156,3 +168,11 @@ python -m pytest tests -v
 - [x] AI 调用超时与异常捕获
 - [x] 打包部署（start.bat + 部署文档）+ 完整交付清单
 - [x] AI 作业记录（`docs/阶段4-AI作业记录.md`）
+
+**阶段5**
+- [x] 两套标准化 Prompt（代码生成 / 代码评审）固化到配置文件，支持版本与热重载
+- [x] 专属项目 RAG 知识库：表结构/接口文档/目录规范/业务逻辑一键入库，检索参数可调优
+- [x] Skills 工具：数据库查询（数据 + 表结构）、项目文件读取（沙箱防护），统一注册可用
+- [x] Agent 自动开发工作流：六步流水线 + 循环校验 + 防护机制（最大轮次/上下文截断/异常兜底）
+- [x] 3 个真实需求全自动跑通：新增离职字段 / 优化分页接口 / 新增导出功能
+- [x] 排错与迭代记录（`docs/阶段5-AI作业记录.md`）

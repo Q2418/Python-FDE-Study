@@ -465,6 +465,94 @@
               "path": ["api", "ai", "chat"]
             }
           }
+        },
+        {
+          "name": "提示词列表（固化配置）",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/ai/prompt/list",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ai", "prompt", "list"]
+            }
+          }
+        },
+        {
+          "name": "重建项目知识库",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/ai/project/reindex",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ai", "project", "reindex"]
+            }
+          }
+        },
+        {
+          "name": "Skills 列表",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/ai/skill/list",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ai", "skill", "list"]
+            }
+          }
+        },
+        {
+          "name": "执行 Skill（表结构查询）",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"query_table_schema\",\n  \"arguments\": { \"table\": \"employee\" }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/ai/skill/run",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ai", "skill", "run"]
+            }
+          }
+        },
+        {
+          "name": "Agent 自动开发工作流",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"requirement\": \"新增员工离职日期字段\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/ai/workflow",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ai", "workflow"]
+            }
+          }
+        },
+        {
+          "name": "工作流运行记录",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/api/ai/workflow/list?page=1&size=10",
+              "host": ["{{base_url}}"],
+              "path": ["api", "ai", "workflow", "list"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "size", "value": "10" }
+              ]
+            }
+          }
         }
       ]
     }

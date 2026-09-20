@@ -1,23 +1,27 @@
 import json
 import logging
+import re
+import time
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from sqlalchemy.orm import Session
 
 from ..config import MAX_UPLOAD_SIZE, UPLOAD_DIR
 from ..core.deps import get_current_user, require_admin
 from ..core.llm import chat_completion, extract_answer, is_mock_mode
 from ..core.logger import log_operation
+from ..core.prompt_manager import list_prompts, reload_prompts
 from ..core.prompts import QA_ANSWER_TEMPERATURE, SYSTEM_PROMPT_QA, SYSTEM_PROMPT_TOOL, TOOL_ANSWER_TEMPERATURE
-from ..core.rag import parse_document, retrieve, split_text
-from ..core.response import success
-from ..core.tools import TOOL_DEFINITIONS, execute_tool
+from ..core.rag import parse_document, reindex_project, retrieve, split_text
+from ..core.response import fail, success
+from ..core.skills import execute_skill, list_skills, tool_definitions
+from ..core.workflow import run_workflow
 from ..database import get_db
-from ..models.ai import AiChunk, AiDocument
+from ..models.ai import AiChunk, AiDocument, AiWorkflowRun
 from ..models.user import User
-from ..schemas.ai import AskRequest, ChatRequest, DocumentOut
+from ..schemas.ai import AskRequest, ChatRequest, DocumentOut, SkillRunRequest, WorkflowRequest
 
 logger = logging.getLogger("asset_admin")
 
@@ -26,7 +30,32 @@ router = APIRouter(prefix="/api/ai", tags=["AI 助手"], dependencies=[Depends(g
 AI_DOC_DIR = UPLOAD_DIR / "ai_docs"
 AI_DOC_EXTENSIONS = {".txt", ".md", ".docx"}
 
-TOOL_LABELS = {"query_employees": "员工", "query_assets": "资产", "query_records": "领用记录"}
+TOOL_LABELS = {
+    "query_employees": "员工",
+    "query_assets": "资产",
+    "query_records": "领用记录",
+    "query_table_schema": "表结构",
+    "read_project_file": "项目文件",
+}
+
+TABLE_HINTS = {
+    "员工表": "employee",
+    "资产表": "asset",
+    "领用记录表": "asset_record",
+    "记录表": "asset_record",
+    "用户表": "user",
+    "角色表": "role",
+    "知识库": "ai_document",
+}
+
+FILE_HINTS = [
+    (["员工", "用户"], "backend/app/routers/employee.py"),
+    (["资产", "设备"], "backend/app/routers/asset.py"),
+    (["登录", "认证", "鉴权"], "backend/app/routers/auth.py"),
+    (["配置"], "backend/app/config.py"),
+    (["表", "数据库"], "sql/init.sql"),
+    (["页面", "前端"], "backend/app/static/index.html"),
+]
 
 
 @router.post("/document", summary="上传知识库文档（txt/md/docx）")
@@ -56,6 +85,7 @@ async def upload_document(
         file_path=str(stored_path),
         file_size=len(data),
         chunk_count=len(chunks),
+        category="upload",
         uploader_id=admin.id,
     )
     db.add(document)
@@ -70,7 +100,12 @@ async def upload_document(
 @router.get("/document/list", summary="知识库文档列表")
 def list_documents(db: Session = Depends(get_db)):
     documents = db.query(AiDocument).order_by(AiDocument.id.desc()).all()
-    return success([DocumentOut.model_validate(item) for item in documents])
+    items = []
+    for document in documents:
+        item = DocumentOut.model_validate(document).model_dump()
+        item["category"] = document.category or "upload"
+        items.append(item)
+    return success(items)
 
 
 @router.delete("/document/{doc_id}", summary="删除知识库文档")
@@ -83,15 +118,56 @@ def delete_document(
     if not document:
         raise HTTPException(status_code=404, detail="文档不存在")
     db.query(AiChunk).filter(AiChunk.document_id == doc_id).delete()
-    try:
-        Path(document.file_path).unlink(missing_ok=True)
-    except OSError:
-        logger.warning("删除知识库文件失败: %s", document.file_path)
+    if (document.category or "upload") == "upload":
+        try:
+            Path(document.file_path).unlink(missing_ok=True)
+        except OSError:
+            logger.warning("删除知识库文件失败: %s", document.file_path)
     filename = document.filename
     db.delete(document)
     db.commit()
     log_operation(admin, "删除知识库文档", filename)
     return success(msg="删除成功")
+
+
+@router.post("/project/reindex", summary="重建项目知识库（扫描项目文档与代码）")
+def project_reindex(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    stats = reindex_project(db, uploader_id=admin.id)
+    log_operation(admin, "重建项目知识库", f"文件 {stats['files']} 个，切片 {stats['chunks']} 个")
+    return success(stats, msg=f"入库完成：{stats['files']} 个文件、{stats['chunks']} 个切片")
+
+
+@router.get("/prompt/list", summary="查看固化的提示词")
+def prompt_list():
+    return success(list_prompts())
+
+
+@router.post("/prompt/reload", summary="重新加载提示词配置")
+def prompt_reload(admin: User = Depends(require_admin)):
+    items = reload_prompts()
+    log_operation(admin, "重载提示词配置", f"{len(items)} 个")
+    return success(items, msg="提示词配置已重新加载")
+
+
+@router.get("/skill/list", summary="查看已注册的 Skills")
+def skill_list():
+    return success(list_skills())
+
+
+@router.post("/skill/run", summary="直接执行 Skill（调试用）")
+def skill_run(
+    data: SkillRunRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_admin),
+):
+    result = execute_skill(db, data.name, data.arguments, admin)
+    log_operation(admin, "执行Skill", f"{data.name} {json.dumps(data.arguments, ensure_ascii=False)}")
+    if result.get("error"):
+        return fail(msg=result["error"], code=400)
+    return success(result)
 
 
 @router.post("/ask", summary="知识库问答（RAG）")
@@ -106,7 +182,7 @@ def ask(
         for score, chunk, filename in hits
     ]
     if not hits:
-        answer = "知识库中没有找到相关信息，请先上传业务文档，或换一种问法。"
+        answer = "知识库中没有找到相关信息，请先上传业务文档或重建项目知识库，或换一种问法。"
     elif is_mock_mode():
         lines = ["【模拟模式】根据知识库检索到以下相关内容："]
         lines.extend(f"- {chunk.content[:150]}" for _, chunk, _ in hits)
@@ -123,6 +199,16 @@ def ask(
     return success({"answer": answer, "sources": sources, "mode": "mock" if is_mock_mode() else "real"})
 
 
+def _extract_file_path(message: str) -> str:
+    match = re.search(r"[\w./\\-]+\.(?:py|sql|md|json|yaml|html|js|css|txt|bat)", message)
+    if match:
+        return match.group(0).replace("\\", "/")
+    for keywords, path in FILE_HINTS:
+        if any(keyword in message for keyword in keywords):
+            return path
+    return "README.md"
+
+
 def _mock_tool_call(message: str):
     if any(keyword in message for keyword in ["记录", "领用记录", "归还记录"]):
         arguments = {}
@@ -131,6 +217,15 @@ def _mock_tool_call(message: str):
         if "归还" in message:
             arguments["action"] = "归还"
         return "query_records", arguments
+    if any(keyword in message for keyword in ["表结构", "字段", "数据库表", "有哪些表"]):
+        arguments = {}
+        for hint, table in TABLE_HINTS.items():
+            if hint in message:
+                arguments["table"] = table
+                break
+        return "query_table_schema", arguments
+    if any(keyword in message for keyword in ["代码", "文件", "源码"]):
+        return "read_project_file", {"path": _extract_file_path(message)}
     if "资产" in message or "设备" in message:
         arguments = {}
         for status in ["空闲", "已领用", "维修", "报废"]:
@@ -155,6 +250,24 @@ def _mock_tool_call(message: str):
 
 
 def _format_mock_answer(tool_name: str, result: dict) -> str:
+    if result.get("error"):
+        return f"【模拟模式】工具执行失败：{result['error']}"
+    if tool_name == "query_table_schema":
+        lines = [f"【模拟模式】读取到 {result.get('count', 0)} 张真实表结构："]
+        for table in result.get("tables", [])[:5]:
+            field_names = "、".join(field["字段"] for field in table["字段"][:8])
+            lines.append(f"- {table['表名']}（{table['字段数']} 个字段）：{field_names} ...")
+        lines.append("（配置 AI_API_KEY 后由大模型组织完整回答）")
+        return "\n".join(lines)
+    if tool_name == "read_project_file":
+        if result.get("path"):
+            preview = (result.get("content") or "")[:400]
+            return (
+                f"【模拟模式】已读取项目文件 {result['path']}"
+                f"（{result.get('size', 0)} 字节，截断={result.get('truncated')}）：\n{preview}\n"
+                "（配置 AI_API_KEY 后由大模型总结代码逻辑）"
+            )
+        return "【模拟模式】文件读取失败。"
     label = TOOL_LABELS.get(tool_name, "数据")
     if not result.get("count"):
         return f"【模拟模式】没有查询到符合条件的{label}数据。"
@@ -175,7 +288,7 @@ def chat(
     result = None
     if is_mock_mode():
         tool_name, arguments = _mock_tool_call(data.message)
-        result = execute_tool(db, tool_name, arguments)
+        result = execute_skill(db, tool_name, arguments, user)
         answer = _format_mock_answer(tool_name, result)
         tool_info = {"name": tool_name, "arguments": arguments}
     else:
@@ -183,7 +296,7 @@ def chat(
             {"role": "system", "content": SYSTEM_PROMPT_TOOL},
             {"role": "user", "content": data.message},
         ]
-        response = chat_completion(messages, tools=TOOL_DEFINITIONS, temperature=TOOL_ANSWER_TEMPERATURE)
+        response = chat_completion(messages, tools=tool_definitions(), temperature=TOOL_ANSWER_TEMPERATURE)
         try:
             message = response["choices"][0]["message"]
         except (KeyError, IndexError, TypeError):
@@ -197,7 +310,7 @@ def chat(
                 arguments = json.loads(call["function"].get("arguments") or "{}")
             except json.JSONDecodeError:
                 arguments = {}
-            result = execute_tool(db, tool_name, arguments)
+            result = execute_skill(db, tool_name, arguments, user)
             tool_info = {"name": tool_name, "arguments": arguments}
             messages.append({"role": "assistant", "content": message.get("content"), "tool_calls": tool_calls})
             messages.append(
@@ -212,3 +325,90 @@ def chat(
             answer = message.get("content") or ""
     log_operation(user, "AI 数据助手", data.message)
     return success({"answer": answer, "tool": tool_info, "data": result, "mode": "mock" if is_mock_mode() else "real"})
+
+
+@router.post("/workflow", summary="AI 自动开发工作流（Agent）")
+def run_agent_workflow(
+    data: WorkflowRequest,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    started = time.time()
+    try:
+        outcome = run_workflow(db, data.requirement, user)
+        run = AiWorkflowRun(
+            requirement=data.requirement,
+            status=outcome["status"],
+            review_rounds=outcome["review_rounds"],
+            steps=json.dumps(outcome["steps"], ensure_ascii=False),
+            result=outcome["result"],
+            duration_ms=outcome["duration_ms"],
+            operator_id=user.id,
+        )
+    except Exception as exc:
+        logger.exception("工作流执行异常")
+        run = AiWorkflowRun(
+            requirement=data.requirement,
+            status="失败",
+            review_rounds=0,
+            steps=json.dumps([{"name": "执行异常", "status": "失败", "detail": str(exc)}], ensure_ascii=False),
+            result=None,
+            duration_ms=int((time.time() - started) * 1000),
+            operator_id=user.id,
+        )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+    log_operation(user, "AI自动开发工作流", f"{data.requirement}（{run.status}，评审 {run.review_rounds} 轮）")
+    return success(
+        {
+            "id": run.id,
+            "status": run.status,
+            "review_rounds": run.review_rounds,
+            "duration_ms": run.duration_ms,
+            "steps": json.loads(run.steps or "[]"),
+            "result": run.result,
+        }
+    )
+
+
+@router.get("/workflow/list", summary="工作流运行记录")
+def workflow_list(
+    page: int = Query(1, ge=1, description="页码"),
+    size: int = Query(10, ge=1, le=100, description="每页条数"),
+    db: Session = Depends(get_db),
+):
+    query = db.query(AiWorkflowRun).order_by(AiWorkflowRun.id.desc())
+    total = query.count()
+    rows = query.offset((page - 1) * size).limit(size).all()
+    items = [
+        {
+            "id": row.id,
+            "requirement": row.requirement,
+            "status": row.status,
+            "review_rounds": row.review_rounds,
+            "duration_ms": row.duration_ms,
+            "create_time": row.create_time,
+        }
+        for row in rows
+    ]
+    return success({"total": total, "items": items})
+
+
+@router.get("/workflow/{run_id}", summary="工作流运行详情")
+def workflow_detail(run_id: int, db: Session = Depends(get_db)):
+    run = db.get(AiWorkflowRun, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="运行记录不存在")
+    return success(
+        {
+            "id": run.id,
+            "requirement": run.requirement,
+            "status": run.status,
+            "review_rounds": run.review_rounds,
+            "duration_ms": run.duration_ms,
+            "steps": json.loads(run.steps or "[]"),
+            "result": run.result,
+            "create_time": run.create_time,
+        }
+    )

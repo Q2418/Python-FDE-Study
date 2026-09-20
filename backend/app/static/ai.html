@@ -42,8 +42,13 @@
                   </div>
                 </div>
                 <el-table :data="documents" size="small" border style="width: 100%">
-                  <el-table-column prop="filename" label="文档名称" min-width="220" show-overflow-tooltip />
-                  <el-table-column prop="chunk_count" label="切片数" width="90" />
+                  <el-table-column prop="filename" label="文档名称" min-width="200" show-overflow-tooltip />
+                  <el-table-column label="来源" width="90">
+                    <template #default="scope">
+                      <el-tag size="small" :type="scope.row.category === 'project' ? 'warning' : 'info'">{{ scope.row.category === "project" ? "项目资料" : "上传" }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="chunk_count" label="切片数" width="80" />
                   <el-table-column label="上传时间" width="180">
                     <template #default="scope">{{ formatTime(scope.row.create_time) }}</template>
                   </el-table-column>
@@ -93,6 +98,51 @@
                 </div>
               </div>
             </el-tab-pane>
+
+            <el-tab-pane label="自动开发（Agent）" name="workflow">
+              <div class="ai-label">输入开发需求</div>
+              <el-input v-model="requirement" type="textarea" :rows="2" placeholder="例如：新增员工离职日期字段 / 优化员工分页接口 / 新增资产导出功能" />
+              <div style="margin-top: 10px">
+                <el-button type="primary" :loading="working" @click="runWorkflow">开始自动开发</el-button>
+                <el-button v-if="isAdmin" :loading="indexing" @click="reindex">重建项目知识库</el-button>
+                <span class="upload-tip">流程：读表结构 → 检索项目知识库 → 生成代码 → 自动评审 → 输出最终代码</span>
+              </div>
+
+              <div v-if="wfSteps.length" class="ai-answer">
+                <div class="ai-label">执行过程（评审 {{ wfRounds }} 轮，耗时 {{ wfDuration }}ms）</div>
+                <el-table :data="wfSteps" size="small" border style="width: 100%">
+                  <el-table-column prop="name" label="步骤" width="210" />
+                  <el-table-column label="状态" width="90">
+                    <template #default="scope">
+                      <el-tag :type="scope.row.status === '成功' ? 'success' : (scope.row.status === '失败' ? 'danger' : 'warning')">{{ scope.row.status }}</el-tag>
+                    </template>
+                  </el-table-column>
+                  <el-table-column prop="detail" label="说明" min-width="220" show-overflow-tooltip />
+                </el-table>
+                <div class="ai-label">最终代码</div>
+                <pre class="ai-pre">{{ wfResult }}</pre>
+                <el-button size="small" style="margin-top: 8px" @click="copyResult">复制代码</el-button>
+              </div>
+
+              <div class="ai-label">历史运行记录</div>
+              <el-table :data="wfHistory" size="small" border style="width: 100%">
+                <el-table-column prop="id" label="ID" width="60" />
+                <el-table-column prop="requirement" label="需求" min-width="200" show-overflow-tooltip />
+                <el-table-column prop="status" label="状态" width="80" />
+                <el-table-column prop="review_rounds" label="评审轮次" width="90" />
+                <el-table-column label="耗时(ms)" width="90">
+                  <template #default="scope">{{ scope.row.duration_ms }}</template>
+                </el-table-column>
+                <el-table-column label="运行时间" width="170">
+                  <template #default="scope">{{ formatTime(scope.row.create_time) }}</template>
+                </el-table-column>
+                <el-table-column label="操作" width="80">
+                  <template #default="scope">
+                    <el-button link type="primary" @click="loadRun(scope.row.id)">查看</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-tab-pane>
           </el-tabs>
         </div>
       </div>
@@ -127,6 +177,14 @@ createApp({
       chatting: false,
       chatAnswer: "",
       chatTool: null,
+      requirement: "",
+      working: false,
+      indexing: false,
+      wfSteps: [],
+      wfResult: "",
+      wfRounds: 0,
+      wfDuration: 0,
+      wfHistory: [],
     };
   },
   mounted() {
@@ -134,6 +192,7 @@ createApp({
       return;
     }
     this.loadDocuments();
+    this.loadHistory();
   },
   methods: {
     async loadDocuments() {
@@ -202,6 +261,68 @@ createApp({
         ElMessage.error(AppAuth.errorMsg(e, "查询失败"));
       } finally {
         this.chatting = false;
+      }
+    },
+    async runWorkflow() {
+      if (!this.requirement.trim()) {
+        ElMessage.warning("请输入开发需求");
+        return;
+      }
+      this.working = true;
+      try {
+        const res = await axios.post("/api/ai/workflow", { requirement: this.requirement });
+        const data = res.data.data;
+        this.wfSteps = data.steps;
+        this.wfResult = data.result;
+        this.wfRounds = data.review_rounds;
+        this.wfDuration = data.duration_ms;
+        ElMessage.success("工作流执行完成");
+        this.loadHistory();
+      } catch (e) {
+        ElMessage.error(AppAuth.errorMsg(e, "工作流执行失败"));
+      } finally {
+        this.working = false;
+      }
+    },
+    async reindex() {
+      this.indexing = true;
+      try {
+        const res = await axios.post("/api/ai/project/reindex");
+        ElMessage.success(res.data.msg || "项目知识库重建完成");
+        this.loadDocuments();
+      } catch (e) {
+        ElMessage.error(AppAuth.errorMsg(e, "重建失败"));
+      } finally {
+        this.indexing = false;
+      }
+    },
+    async loadHistory() {
+      try {
+        const res = await axios.get("/api/ai/workflow/list", { params: { page: 1, size: 10 } });
+        this.wfHistory = res.data.data.items;
+      } catch (e) {
+        this.wfHistory = [];
+      }
+    },
+    async loadRun(id) {
+      try {
+        const res = await axios.get("/api/ai/workflow/" + id);
+        const data = res.data.data;
+        this.wfSteps = data.steps;
+        this.wfResult = data.result;
+        this.wfRounds = data.review_rounds;
+        this.wfDuration = data.duration_ms;
+        this.requirement = data.requirement;
+      } catch (e) {
+        ElMessage.error(AppAuth.errorMsg(e, "加载失败"));
+      }
+    },
+    async copyResult() {
+      try {
+        await navigator.clipboard.writeText(this.wfResult || "");
+        ElMessage.success("已复制到剪贴板");
+      } catch (e) {
+        ElMessage.warning("复制失败，请手动选择复制");
       }
     },
     formatTime(value) {
