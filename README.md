@@ -1,70 +1,85 @@
+<div align="center">
+
 # 企业人员资产管理后台系统
 
-FDE 工程师培训项目（8 周迭代，同一项目逐阶段升级）：
-- 阶段1：搭项目底座（建表 + 生成前后端 CRUD）
-- 阶段2：企业级规范化改造（统一返回 + 全局异常 + 参数校验 + 进阶查询 + 单元测试）
-- 阶段3：登录认证与角色权限 + 前端联调 + 资产领用/归还状态流转 + 领用记录
-- 阶段4：附件上传/Excel 导出/高级查询/日志 + AI 知识库问答（RAG）+ 工具调用 + 部署交付
-- 阶段5：AI 工程化（提示词固化 + 项目专属 RAG + Skills 工具 + Agent 自动开发工作流）
+**Python FDE 工程师培训实训项目 · 8 周同一项目逐阶段迭代**
 
-## 技术栈
+从零搭建到企业级可交付：建表生成 CRUD → 企业规范改造 → 登录权限与业务流程 → 高阶能力与 AI 集成 → AI 工程化落地
 
-- 后端：Python 3.11 + FastAPI + SQLAlchemy + JWT（PyJWT）+ bcrypt
-- 数据库：默认 SQLite（零配置直接跑），改一行配置即可切换 MySQL 8.0
-- 前端：Vue3 + Element Plus + Axios（依赖本地化，离线可用，无需 npm 构建）
-- 文件/报表：python-multipart（上传）+ openpyxl（Excel 导出）+ python-docx（知识库文档解析）
-- AI：OpenAI 兼容接口（DeepSeek/通义/智谱等），未配置 key 时自动使用内置模拟模式
-- AI 工程化：固化提示词（YAML）+ 项目 RAG 知识库 + Skills 工具注册表 + Agent 工作流编排
-- 测试：pytest + httpx（62 个用例）
+`Python 3.11` · `FastAPI` · `SQLAlchemy` · `JWT` · `Vue3 + Element Plus` · `RAG` · `Agent 工作流`
 
-## 目录结构
+</div>
+
+---
+
+## 目录
+
+- [项目简介](#项目简介)
+- [核心功能](#核心功能)
+- [技术架构](#技术架构)
+- [快速开始](#快速开始)
+- [演示账号](#演示账号)
+- [AI 工程化能力](#ai-工程化能力)
+- [测试与质量](#测试与质量)
+- [阶段迭代路线](#阶段迭代路线)
+- [项目结构](#项目结构)
+- [配置说明](#配置说明)
+- [部署与交付](#部署与交付)
+
+---
+
+## 项目简介
+
+公司内部使用的**人员 + 资产管理系统**：员工信息管理、资产台账、领用归还追溯、登录权限、数据导出、AI 知识库问答与自动开发助手。
+
+整个项目按 5 个阶段逐步迭代，每个阶段都有可运行、可验收的版本：
+
+> 不是"最后一次性做完"，而是每周迭代一版，循序渐进练会 Python 全栈 + AI 开发工具。
+
+## 核心功能
+
+| 模块 | 功能 |
+| --- | --- |
+| 登录认证 | JWT 登录、Token 拦截、RBAC 角色权限（管理员 / 普通员工） |
+| 员工管理 | 增删改查、分页、多条件筛选（姓名/部门/状态/入职日期范围）、排序、附件上传下载、Excel 导出 |
+| 资产管理 | 增删改查、状态筛选、排序、领用/归还状态流转、非法操作拦截 |
+| 领用记录 | 领用/归还全量留痕、按资产名称/操作类型筛选、分页查询 |
+| 系统规范 | 统一返回格式、全局异常中文提示、参数校验、关键操作日志（文件滚动） |
+| AI 助手 | 知识库问答（RAG）、自然语言查询业务数据（工具调用）、Agent 自动开发工作流 |
+
+## 技术架构
 
 ```
-asset-admin/
-├── sql/
-│   └── init.sql              # MySQL 建表脚本（全部表 + 演示数据 + 演示账号）
-├── postman/
-│   └── asset-admin.postman_collection.json   # Postman 集合（登录自动保存 token）
-├── docs/
-│   ├── 阶段2-改造记录.md
-│   ├── 阶段3-AI作业记录.md
-│   └── 阶段4-AI作业记录.md    # AI 问题清单 + 风险识别 + 部署交付说明
-└── backend/
-    ├── config/
-    │   └── prompts.yaml      # 固化提示词配置（5 段结构：角色/任务/约束/输出格式/示例）
-    ├── start.bat             # 一键启动（自动建虚拟环境 + 装依赖 + 启动）
-    ├── requirements.txt      # 依赖清单
-    ├── run.py                # 启动入口（python run.py）
-    ├── uploads/              # 上传文件（员工附件 / 知识库文档，运行时生成）
-    ├── logs/                 # 运行日志（app.log 按 5MB 滚动，运行时生成）
-    ├── tests/                # pytest 单元测试
-    └── app/
-        ├── main.py           # 入口：路由注册、异常处理、日志、静态页面
-        ├── config.py         # 数据库 / JWT / 上传 / 日志 / AI 配置
-        ├── database.py       # 引擎与会话 + 存量库字段自动升级
-        ├── init_data.py      # 演示数据（含演示账号）
-        ├── core/
-        │   ├── response.py   # 统一返回封装
-        │   ├── exception.py  # 全局异常处理（中文提示）
-        │   ├── security.py   # 密码哈希 + JWT
-        │   ├── deps.py       # 登录拦截 / 管理员校验
-        │   ├── logging_conf.py  # 日志配置（文件滚动）
-        │   ├── logger.py     # 关键操作日志
-        │   ├── llm.py        # 大模型客户端（真实 + 模拟模式 + 超时异常）
-        │   ├── prompts.py    # 基础问答/工具提示词
-        │   ├── prompt_manager.py  # 固化提示词加载/渲染/版本（读 config/prompts.yaml）
-        │   ├── rag.py        # 文档解析/切片/检索 + 项目知识库重建
-        │   ├── skills.py     # Skills 注册表（数据/表结构/项目文件读取，沙箱防护）
-        │   └── workflow.py   # Agent 自动开发工作流（六步 + 循环评审 + 防护机制）
-        ├── models/           # ORM：employee/asset/user/asset_record/ai_document/ai_chunk
-        ├── schemas/          # Pydantic 校验模型
-        ├── routers/          # auth / employee / asset / record / ai
-        └── static/           # 页面：login / index / employee / asset / record / ai
-            ├── app.js        # axios 封装（token、401 跳转、权限）
-            └── lib/          # 前端依赖本地库
+┌─────────────────────────────────────────────────────────────┐
+│                     浏览器（Vue3 + Element Plus）             │
+│   登录页 / 首页看板 / 员工管理 / 资产管理 / 领用记录 / AI 助手    │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ Axios（自动携带 Token，401 跳登录）
+┌──────────────────────────▼──────────────────────────────────┐
+│                     FastAPI 后端（统一返回 / 全局异常）          │
+│  ┌──────────┬──────────┬──────────┬──────────┬────────────┐  │
+│  │ 认证模块  │ 员工模块  │ 资产模块  │ 记录模块  │  AI 模块   │  │
+│  │ JWT+RBAC │ 附件/导出 │ 领用归还  │ 追溯查询  │ RAG/Agent │  │
+│  └──────────┴──────────┴──────────┴──────────┴────────────┘  │
+│         │              │                    │                 │
+│    ┌────▼────┐    ┌────▼────┐         ┌────▼─────────────┐    │
+│    │ 日志系统 │    │ 文件存储 │         │ 固化提示词 YAML   │    │
+│    │ 滚动落盘 │    │ uploads │         │ Skills 注册表     │    │
+│    └─────────┘    └─────────┘         │ 项目 RAG 知识库   │    │
+│                                        │ Agent 六步工作流  │    │
+│                                        └───────┬──────────┘    │
+│                                                │ 模拟/真实可切换 │
+│                                        ┌───────▼──────────┐    │
+│                                        │ LLM（OpenAI 兼容）│    │
+│                                        └──────────────────┘    │
+└──────────────────────────┬──────────────────────────────────┘
+                           │ SQLAlchemy ORM
+                 ┌─────────▼─────────┐
+                 │ SQLite / MySQL 8.0 │
+                 └───────────────────┘
 ```
 
-## 部署运行（交付说明）
+## 快速开始
 
 **方式一：一键启动（Windows）**
 
@@ -73,14 +88,12 @@ cd backend
 start.bat
 ```
 
-脚本自动完成：创建虚拟环境 → 安装依赖 → 启动服务 → 打开浏览器。
+自动完成：创建虚拟环境 → 安装依赖 → 启动服务 → 打开浏览器。
 
 **方式二：手动启动**
 
 ```bash
 cd backend
-python -m venv .venv
-.venv\Scripts\activate          # Linux/Mac: source .venv/bin/activate
 pip install -r requirements.txt
 python run.py
 ```
@@ -91,88 +104,142 @@ python run.py
 | --- | --- |
 | http://127.0.0.1:8000/login | 登录页 |
 | http://127.0.0.1:8000/ | 首页统计看板 |
-| http://127.0.0.1:8000/employee | 员工管理（附件/导出/高级筛选） |
-| http://127.0.0.1:8000/asset | 资产管理（领用/归还） |
+| http://127.0.0.1:8000/employee | 员工管理 |
+| http://127.0.0.1:8000/asset | 资产管理 |
 | http://127.0.0.1:8000/record | 领用记录 |
-| http://127.0.0.1:8000/ai | AI 助手（知识库问答 + 数据助手） |
+| http://127.0.0.1:8000/ai | AI 助手 |
 | http://127.0.0.1:8000/docs | Swagger 接口文档 |
 
-**演示账号**：`admin / 123456`（管理员）、`zhangsan / 123456`（普通员工，只读）
+## 演示账号
 
-## AI 助手配置
+| 账号 | 密码 | 角色 | 权限 |
+| --- | --- | --- | --- |
+| `admin` | `123456` | 管理员 | 全部操作（增删改查、领用归还、附件、导出、AI 管理） |
+| `zhangsan` | `123456` | 普通员工 | 只读（页面按钮自动隐藏，接口写操作返回 403） |
 
-默认使用**内置模拟模式**（无需 key，全流程可跑通，回答带【模拟模式】前缀）。
-配置真实大模型：修改 `backend/app/config.py`
+## AI 工程化能力
+
+| 能力 | 实现 | 说明 |
+| --- | --- | --- |
+| 固化提示词 | `backend/config/prompts.yaml` | 两套标准 Prompt（代码生成 / 代码评审），5 段结构，变量渲染 + 版本管理 + 热重载 |
+| 项目专属 RAG | `core/rag.py` | 一键扫描项目资料（表结构 SQL / README / docs / 后端代码）入库，检索 Top-K 带来源引用，参数可调优 |
+| Skills 工具 | `core/skills.py` | 数据查询、表结构查询、项目文件读取（路径沙箱 + 白名单），统一注册 + 异常兜底，供大模型 Function Call |
+| Agent 工作流 | `core/workflow.py` | 六步自动开发：读表结构 → 检索知识库 → 生成代码 → 自动评审 → 回炉修正 → 输出最终代码；含最大轮次、上下文截断、异常兜底 |
+
+**大模型配置**（默认模拟模式，无需 key 即可全流程演示）：
 
 ```python
-AI_BASE_URL = "https://api.deepseek.com/v1"   # 或通义/智谱等 OpenAI 兼容地址
-AI_API_KEY = "sk-你的key"
+# backend/app/config.py
+AI_BASE_URL = "https://api.deepseek.com/v1"   # 任意 OpenAI 兼容接口
+AI_API_KEY = "sk-你的key"                       # 填入后自动切换真实模型
 AI_MODEL = "deepseek-chat"
 ```
 
-重启后自动切换为真实模型：知识库问答（RAG）由模型总结并引用来源；数据助手由模型选择工具查询真实数据；Agent 工作流由模型完成代码生成与评审。
+## 测试与质量
 
-**固化提示词**：位于 `backend/config/prompts.yaml`（5 段结构，支持 `{requirement}` `{table_schema}` `{code_style}` `{code}` 变量），修改后调用 `POST /api/ai/prompt/reload` 或重启服务生效，改 Prompt 不用改业务代码。
+| 项目 | 内容 |
+| --- | --- |
+| 单元测试 | `python -m pytest tests -v` → **62 个用例**（认证/权限/CRUD/校验/领用归还/附件/导出/AI/工作流） |
+| 接口冒烟 | 阶段 3/4/5 全流程脚本 → **53 项检查** |
+| 全流程验收 | 单测 + 冒烟合计 **115 项检查全部通过** |
+| 接口调试 | `postman/asset-admin.postman_collection.json`（30 个请求，登录自动保存 Token） |
+| 运行日志 | `backend/logs/app.log`（5MB 滚动，关键操作全留痕） |
 
-## 功能清单
+## 阶段迭代路线
 
-- 登录认证：JWT + 角色权限（管理员/普通员工），未登录拦截、越权 403
-- 员工/资产：增删改查、分页、多条件筛选（姓名/部门/状态/日期范围）、排序（字段白名单）
-- 员工附件：类型白名单 + 5MB 限制 + UUID 重命名防覆盖，支持上传/下载/替换/删除
-- Excel 导出：按当前筛选条件导出员工报表（openpyxl）
-- 领用归还：状态流转（空闲⇄已领用）、非法操作拦截、事务控制、记录追溯
-- 日志：`logs/app.log` 滚动记录登录、增删改、领用归还、导出、AI 调用等关键操作
-- AI 知识库（RAG）：上传 txt/md/docx → 切片入库 → 检索 Top-K → 问答并附来源
-- AI 数据助手：自然语言 → 模型选择工具（员工/资产/记录查询）→ 真实数据回答
-- AI 提示词固化：`config/prompts.yaml` 两套标准 Prompt（代码生成/代码评审），变量渲染 + 热重载
-- 项目 RAG：一键扫描项目文档与代码入库（表结构 SQL / README / docs / 后端代码），检索参数可调
-- Skills 工具：数据查询、表结构查询、项目文件读取（路径沙箱 + 扩展名白名单 + 大小限制），统一注册表与异常兜底
-- Agent 工作流：六步自动开发（读表结构→检索知识库→生成→评审→回炉→输出），循环轮次上限 + 上下文截断 + 每步异常兜底，运行记录可追溯
-- 统一返回、全局异常中文提示、pytest 62 个用例、Postman 30 个请求集合
+| 阶段 | 主题 | 交付内容 | 记录 |
+| --- | --- | --- | --- |
+| 阶段1 | 项目底座 | 建表 SQL、FastAPI 项目、前后端 CRUD、正常启动 | [改造记录](docs/阶段2-改造记录.md) |
+| 阶段2 | 企业规范 | 统一返回、全局异常中文提示、参数校验、分页筛选、pytest、Postman | [改造记录](docs/阶段2-改造记录.md) |
+| 阶段3 | 权限与业务 | 用户/角色表、JWT 登录、权限控制、登录页、领用/归还状态流转、记录追溯 | [AI作业记录](docs/阶段3-AI作业记录.md) |
+| 阶段4 | 高阶能力与 AI | 附件上传、Excel 导出、高级查询、日志、RAG 知识库问答、工具调用、一键部署 | [AI作业记录](docs/阶段4-AI作业记录.md) |
+| 阶段5 | AI 工程化 | 提示词固化、项目专属 RAG、Skills 工具、Agent 自动开发工作流 | [AI作业记录](docs/阶段5-AI作业记录.md) |
 
-## 单元测试
+## 项目结构
 
-```bash
-cd backend
-python -m pytest tests -v
+<details>
+<summary>展开查看完整目录结构</summary>
+
+```
+asset-admin/
+├── sql/
+│   └── init.sql                  # MySQL 建表脚本（全部表 + 演示数据 + 演示账号）
+├── postman/
+│   └── asset-admin.postman_collection.json
+├── docs/
+│   ├── 阶段2-改造记录.md
+│   ├── 阶段3-AI作业记录.md
+│   ├── 阶段4-AI作业记录.md
+│   ├── 阶段5-AI作业记录.md
+│   └── 验收报告.md
+└── backend/
+    ├── config/
+    │   └── prompts.yaml          # 固化提示词配置（5 段结构）
+    ├── start.bat                 # 一键启动
+    ├── requirements.txt
+    ├── run.py
+    ├── uploads/                  # 上传文件（运行时生成）
+    ├── logs/                     # 运行日志（运行时生成）
+    ├── tests/                    # pytest 单元测试（62 个用例）
+    └── app/
+        ├── main.py               # 入口：路由 / 异常 / 日志 / 静态页面
+        ├── config.py             # 数据库 / JWT / 上传 / 日志 / AI 配置
+        ├── database.py           # 引擎与会话 + 存量库自动升级
+        ├── init_data.py          # 演示数据与演示账号
+        ├── core/
+        │   ├── response.py       # 统一返回封装
+        │   ├── exception.py      # 全局异常处理（中文提示）
+        │   ├── security.py       # 密码哈希 + JWT
+        │   ├── deps.py           # 登录拦截 / 管理员校验
+        │   ├── logging_conf.py   # 日志配置（文件滚动）
+        │   ├── logger.py         # 关键操作日志
+        │   ├── llm.py            # 大模型客户端（真实 + 模拟模式）
+        │   ├── prompt_manager.py # 固化提示词加载/渲染/版本
+        │   ├── rag.py            # 文档切片/检索 + 项目知识库重建
+        │   ├── skills.py         # Skills 注册表（含沙箱防护）
+        │   └── workflow.py       # Agent 自动开发工作流
+        ├── models/               # ORM：员工/资产/用户/记录/知识库/工作流
+        ├── schemas/              # Pydantic 校验模型
+        ├── routers/              # auth / employee / asset / record / ai
+        └── static/               # 页面：login / index / employee / asset / record / ai
+            ├── app.js            # axios 封装（Token / 401 / 权限）
+            └── lib/              # 前端依赖本地库（离线可用）
 ```
 
-## 切换 MySQL
+</details>
 
-1. 执行 `sql/init.sql`（Navicat 或 mysql 命令行）
-2. 修改 `backend/app/config.py` 的 `DATABASE_URL`（注释 SQLite 一行，放开 MySQL 一行）
+## 配置说明
+
+**切换 MySQL**（默认 SQLite 零配置）：
+
+1. 执行 `sql/init.sql` 建库建表
+2. 修改 `backend/app/config.py` 的 `DATABASE_URL`（注释 SQLite，放开 MySQL）
 3. 重启项目，代码零改动
 
-## 阶段作业对照
+**AI 模式**：不配置 `AI_API_KEY` 时自动使用内置模拟模式（页面标注「模拟模式」），所有接口、流程、防护机制均真实运行；配置 key 后自动切换真实大模型。
 
-**阶段1**
-- [x] 员工表、资产表建表 SQL（`sql/init.sql`）
-- [x] FastAPI 项目 + 依赖 + 前后端 CRUD + 正常启动
+## 部署与交付
 
-**阶段2**
-- [x] 统一返回格式 / 全局异常中文提示 / 参数校验
-- [x] 分页 + 条件筛选 + pytest + Postman
+**交付物清单**
 
-**阶段3**
-- [x] 用户/角色/关联表 + 登录 + Token 拦截 + 权限控制
-- [x] 登录页 + 员工页 + 资产页前后端联调
-- [x] 领用/归还状态流转 + 记录追溯 + 边界提示
+| 交付物 | 位置 |
+| --- | --- |
+| 源码 | 本仓库（5 个阶段提交，完整迭代链） |
+| 建表脚本 | `sql/init.sql` |
+| 一键启动 | `backend/start.bat` |
+| 使用/部署文档 | 本 README |
+| 接口调试集合 | `postman/asset-admin.postman_collection.json` |
+| 单元测试 | `backend/tests/`（62 个用例） |
+| 过程记录 | `docs/`（改造记录、AI 作业记录、验收报告） |
 
-**阶段4**
-- [x] 人员附件上传（类型/大小限制 + 路径管理）
-- [x] 人员列表多条件筛选、分页、排序
-- [x] 人员数据 Excel 导出
-- [x] 关键操作日志落地（文件滚动）
-- [x] AI 知识库问答（RAG）：文档上传、检索、问答页面
-- [x] 工具调用：自然语言查询员工/资产/领用记录
-- [x] AI 调用超时与异常捕获
-- [x] 打包部署（start.bat + 部署文档）+ 完整交付清单
-- [x] AI 作业记录（`docs/阶段4-AI作业记录.md`）
+**部署步骤**：环境准备（Python 3.11+）→ 依赖安装（`pip install -r requirements.txt`）→ 启动服务（`python run.py`）→ 访问验证（登录页 + 演示账号）。
 
-**阶段5**
-- [x] 两套标准化 Prompt（代码生成 / 代码评审）固化到配置文件，支持版本与热重载
-- [x] 专属项目 RAG 知识库：表结构/接口文档/目录规范/业务逻辑一键入库，检索参数可调优
-- [x] Skills 工具：数据库查询（数据 + 表结构）、项目文件读取（沙箱防护），统一注册可用
-- [x] Agent 自动开发工作流：六步流水线 + 循环校验 + 防护机制（最大轮次/上下文截断/异常兜底）
-- [x] 3 个真实需求全自动跑通：新增离职字段 / 优化分页接口 / 新增导出功能
-- [x] 排错与迭代记录（`docs/阶段5-AI作业记录.md`）
+---
+
+<div align="center">
+
+**FDE Python 全栈培训 · 实训项目**
+
+阶段1 → 阶段5 全部完成 · 115 项检查通过 · 可本地部署运行
+
+</div>
