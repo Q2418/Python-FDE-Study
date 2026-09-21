@@ -231,3 +231,11 @@ asset-admin/
 | 过程记录 | `docs/`（改造记录、AI 作业记录） |
 
 **部署步骤**：环境准备（Python 3.11+）→ 依赖安装（`pip install -r requirements.txt`）→ 启动服务（`python run.py`）→ 访问验证（登录页 + 演示账号）。
+
+---
+
+<div align="center">
+
+**FDE Python 全栈培训 · 实训项目**
+
+</div>
